@@ -1,6 +1,7 @@
 <project name="mdnsjava" default="all" basedir=".">
     <property name="build_dir" value="${basedir}/classes"/>
     <property name="src_dir" value="${basedir}/src"/>
+    <property name="lib_dir" value="${basedir}/lib"/>
     <property name="doc_dir" value="${basedir}/doc"/>
     <property name="dist_dir" value="${basedir}"/>
     <property name="tests_dir" value="${basedir}/tests"/>
@@ -17,8 +18,9 @@
     </target>
 
     <target name="compile" description="Compile everything">
-	<javac destdir="${build_dir}" debug="true" target="1.5" source="1.5">
+	<javac destdir="${build_dir}" debug="true" target="1.5" source="1.5" includeantruntime="false">
 	    <src path="${src_dir}"/>
+		<include name="${lib_dir}/*.jar" />
 	    <exclude name="tests/**"/>
 	</javac>
     </target>
@@ -54,15 +56,15 @@
 			Bundle-Version: ${version}
 			Bundle-Name: mdnsjava is an implementation of mDNS and DNS-SD in Java
 			Bundle-SymbolicName: org.xbill.dns
-			Export-Package: org.xbill.DNS;version=${version},org.xbill.DNS.spi;version=${version},org.xbill.DNS.utils;version=${version},org.xbill.DNS.windows;version=${version}
+			Export-Package: org.xbill.mDNS;version=${version},org.xbill.mDNS.spi;version=${version}
 			Bundle-Vendor: dnsjava.org
 			Bundle-RequiredExecutionEnvironment: J2SE-1.5
-			Import-Package: !org.xbill.DNS*,!sun.*,*
+			Import-Package: !org.xbill.mDNS*,!sun.*,*
 		</echo>
 		<bndwrap
 			definitions="${dist_dir}"
 			jars="${dist_dir}/${jarname}"
-			output="${dist_dir}/org.xbill.dns_${version}.jar"/>
+			output="${dist_dir}/org.xbill.mdns_${version}.jar"/>
 		<delete file="${dist_dir}/mdnsjava-${version}.bnd"/>
 	</target>
 
