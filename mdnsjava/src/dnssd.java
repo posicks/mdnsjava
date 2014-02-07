@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.DClass;
+import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.Record;
@@ -163,8 +164,8 @@ public class dnssd
                             System.out.println("Services Found:");
                             ExecutionTimer.start();
                             ExecutionTimer.start();
-                            Browse browse = new Browse(serviceTypes);
-                            browse.start(new DNSSDListener()
+                            MulticastDNSService mDNSService = new MulticastDNSService();
+                            Object id = mDNSService.startServiceDiscovery(new Browse(serviceTypes), new DNSSDListener()
                             {
                                 public void serviceDiscovered(Object id, ServiceInstance service)
                                 {
@@ -175,6 +176,11 @@ public class dnssd
                                 public void serviceRemoved(Object id, ServiceInstance service)
                                 {
                                     System.out.println("Service Removed - " + service);
+                                }
+                                
+                                
+                                public void receiveMessage(Object id, Message m)
+                                {
                                 }
                                 
                                 
@@ -196,7 +202,8 @@ public class dnssd
                                     break;
                                 }
                             }
-                            browse.close();
+                            mDNSService.stopServiceDiscovery(id);
+                            mDNSService.close();
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'L':
@@ -300,7 +307,7 @@ public class dnssd
                                 addresses = MulticastDNSUtils.getLocalAddresses();
                             }
                             ExecutionTimer.start();
-                            MulticastDNSService mDNSService = new MulticastDNSService();
+                            mDNSService = new MulticastDNSService();
                             ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname, MulticastDNSService.DEFAULT_SRV_TTL, addresses, txtValues);
                             ServiceInstance registeredService = mDNSService.register(service);
                             if (registeredService != null)

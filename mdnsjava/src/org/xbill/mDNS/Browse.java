@@ -1,10 +1,8 @@
 package org.xbill.mDNS;
 
 import java.io.IOException;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -15,16 +13,16 @@ import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.Options;
-import org.xbill.DNS.PTRRecord;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.ResolverListener;
-import org.xbill.DNS.SRVRecord;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.Type;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
+    protected static ScheduledExecutorService defaultScheduledExecutor = null;
+    
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
      * Refer to the mDNS specification [RFC 6762]
@@ -37,10 +35,8 @@ public class Browse extends MulticastDNSLookupBase
         
         private int broadcastDelay = 0;
         
-        private ListenerProcessor<DNSSDListener> listenerProcessor = new ListenerProcessor<DNSSDListener>(DNSSDListener.class);
+        private ListenerProcessor<ResolverListener> listenerProcessor = new ListenerProcessor<ResolverListener>(ResolverListener.class);
         
-        private Map services = new HashMap();
-
         private long lastBroadcast;
         
         
@@ -50,7 +46,7 @@ public class Browse extends MulticastDNSLookupBase
         }
 
 
-        BrowseOperation(DNSSDListener listener, Message... query)
+        BrowseOperation(ResolverListener listener, Message... query)
         {
             this.queries = query;
             
@@ -116,13 +112,13 @@ public class Browse extends MulticastDNSLookupBase
         }
         
         
-        DNSSDListener registerListener(DNSSDListener listener)
+        ResolverListener registerListener(ResolverListener listener)
         {
             return listenerProcessor.registerListener(listener);
         }
         
         
-        DNSSDListener unregisterListener(DNSSDListener listener)
+        ResolverListener unregisterListener(ResolverListener listener)
         {
             return listenerProcessor.unregisterListener(listener);
         }
@@ -132,78 +128,7 @@ public class Browse extends MulticastDNSLookupBase
         {
             if (matchesBrowse(message))
             {
-                Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
-                
-                for (int index = 0; index < records.length; index++)
-                {
-                    try
-                    {
-                        ServiceInstance service = null;
-                        
-                        switch (records[index].getType())
-                        {
-                            case Type.SRV :
-                                SRVRecord srv = (SRVRecord) records[index];
-                                if (srv.getTTL() > 0)
-                                {
-                                    if (!services.containsKey(srv.getName()))
-                                    {
-                                        service = new ServiceInstance(srv);
-                                        if (!services.containsKey(srv.getName()))
-                                        {
-                                            service = new ServiceInstance(srv);
-                                            services.put(srv.getName(), service);
-                                            listenerProcessor.getDispatcher().serviceDiscovered(id, service);
-                                        }
-                                    }
-                                } else
-                                {
-                                    service = (ServiceInstance) services.get(srv.getName());
-                                    if (service != null)
-                                    {
-                                        services.remove(service.getName());
-                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
-                                    }
-                                }
-                                break;
-                            case Type.PTR :
-                                PTRRecord ptr = (PTRRecord) records[index];
-                                
-                                if (ptr.getTTL() > 0)
-                                {
-                                    ServiceInstance[] instances = extractServiceInstances(querier.send(Message.newQuery(Record.newRecord(ptr.getTarget(), Type.ANY, dclass))));
-                                    if (instances.length > 0)
-                                    {
-                                        for (int i = 0; i < instances.length; i++)
-                                        {
-                                            if (!services.containsKey(instances[i].getName()))
-                                            {
-                                                services.put(instances[i].getName(), instances[i]);
-                                                listenerProcessor.getDispatcher().serviceDiscovered(id, instances[i]);
-                                            }
-                                        }
-                                    }
-                                } else
-                                {
-                                    service = (ServiceInstance) services.get(ptr.getTarget());
-                                    if (service != null)
-                                    {
-                                        services.remove(service.getName());
-                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
-                                    }
-                                }
-                                break;
-
-                        }
-                    } catch (IOException e)
-                    {
-                        System.err.print("error parsing SRV record - " + e.getMessage());
-                        if (Options.check("mdns_verbose"))
-                        {
-                            e.printStackTrace(System.err);
-                        }
-                    }
-                }
+                listenerProcessor.getDispatcher().receiveMessage(id, message);
             }
         }
 
@@ -259,14 +184,10 @@ public class Browse extends MulticastDNSLookupBase
     
     protected List browseOperations = new LinkedList();
 
-    protected ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
-    {
-        public Thread newThread(Runnable r)
-        {
-            return new Thread(r, "mDNSResolver Scheduled Thread");
-        }
-    });
-    
+    protected ScheduledExecutorService scheduledExecutor;
+
+    private boolean selfCreatedScheduler = true;
+   
 
     protected Browse()
     throws IOException
@@ -322,14 +243,32 @@ public class Browse extends MulticastDNSLookupBase
     {
         super(names, type, dclass);
     }
+    
+    
+    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            defaultScheduledExecutor = scheduledExecutor;
+        }
+    }
+    
+    
+    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            this.scheduledExecutor = scheduledExecutor;
+            this.selfCreatedScheduler = false;
+        }
+    }
 
 
     /**
      * @param listener
      * @throws IOException
      */
-    public synchronized void start(DNSSDListener listener)
-    throws IOException
+    public synchronized void start(ResolverListener listener)
     {
         if (listener == null)
         {
@@ -349,6 +288,24 @@ public class Browse extends MulticastDNSLookupBase
             throw new NullPointerException("Error sending asynchronous query, No queries specified!");
         }
         
+        if (scheduledExecutor == null)
+        {
+            if (defaultScheduledExecutor == null)
+            {
+                scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
+                {
+                    public Thread newThread(Runnable r)
+                    {
+                        return new Thread(r, "mDNSResolver Scheduled Thread");
+                    }
+                });
+                selfCreatedScheduler = true;
+            } else
+            {
+                setScheduledExecutor(defaultScheduledExecutor);
+            }
+        }
+        
         BrowseOperation browseOperation = new BrowseOperation(listener, queries);
         browseOperations.add(browseOperation);
         querier.registerListener(browseOperation);
@@ -361,12 +318,15 @@ public class Browse extends MulticastDNSLookupBase
     public void close()
     throws IOException
     {
-        try
+        if (selfCreatedScheduler )
         {
-            scheduledExecutor.shutdown();
-        } catch (Exception e)
-        {
-            // ignore
+            try
+            {
+                scheduledExecutor.shutdown();
+            } catch (Exception e)
+            {
+                // ignore
+            }
         }
         
         for (Object o : browseOperations)

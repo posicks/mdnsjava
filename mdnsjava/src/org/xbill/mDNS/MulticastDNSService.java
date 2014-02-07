@@ -5,8 +5,13 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 
 import org.xbill.DNS.AAAARecord;
 import org.xbill.DNS.ARecord;
@@ -100,8 +105,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
 
     /** The Cache Flush flag used in Multicast DNS (mDNS) [RFC 6762] query responses */
     public static final int CACHE_FLUSH = 0x8000;
-
-
+    
+    
     public static boolean hasMulticastDomains(Message query)
     {
         Record[] records = MulticastDNSUtils.extractRecords(query, 0, 1, 2, 3);
@@ -512,8 +517,224 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         {
         }
     }
+    /**
+     * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
+     * Refer to the mDNS specification [RFC 6762]
+     * 
+     * @author Steve Posick
+     */
+    protected class ServiceDiscoveryOperation implements ResolverListener
+    {
+        private Browse browser;
+        
+        private ListenerProcessor<DNSSDListener> listenerProcessor = new ListenerProcessor<DNSSDListener>(DNSSDListener.class);
+        
+        private Map services = new HashMap();
+        
+        
+        ServiceDiscoveryOperation(Browse browser)
+        {
+            this(browser, null);
+        }
+
+
+        ServiceDiscoveryOperation(Browse browser, DNSSDListener listener)
+        {
+            this.browser = browser;
+            
+            if (listener != null)
+            {
+                registerListener(listener);
+            }
+        }
+
+
+        Browse getBrowser()
+        {
+            return browser;
+        }
+        
+        
+        boolean answersQuery(Record record)
+        {
+            if (record != null)
+            {
+                for (Message query : browser.queries)
+                {
+                    for (Record question : MulticastDNSUtils.extractRecords(query, Section.QUESTION))
+                    {
+                        Name questionName = question.getName();
+                        Name recordName = record.getName();
+                        int questionType = question.getType();
+                        int recordType = record.getType();
+                        int questionDClass = question.getDClass();
+                        int recordDClass = record.getDClass();
+                        
+                        if ((questionType == Type.ANY || questionType == recordType) &&
+                            (questionName.equals(recordName) || questionName.subdomain(recordName) ||
+                            recordName.toString().endsWith("." + questionName.toString())) &&
+                            (questionDClass == DClass.ANY || (questionDClass & 0x7FFF) == (recordDClass & 0x7FFF)))
+                        {
+                            return true;
+                        }
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        
+        boolean matchesBrowse(Message message)
+        {
+            if (message != null)
+            {
+                Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+                
+                for (Record thatAnswer : thatAnswers)
+                {
+                    if (answersQuery(thatAnswer))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        
+        DNSSDListener registerListener(DNSSDListener listener)
+        {
+            return listenerProcessor.registerListener(listener);
+        }
+        
+        
+        DNSSDListener unregisterListener(DNSSDListener listener)
+        {
+            return listenerProcessor.unregisterListener(listener);
+        }
+        
+
+        public void receiveMessage(Object id, Message message)
+        {
+            if (matchesBrowse(message))
+            {
+                listenerProcessor.getDispatcher().receiveMessage(id, message);
+                
+                Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+                
+                for (int index = 0; index < records.length; index++)
+                {
+                    try
+                    {
+                        ServiceInstance service = null;
+                        
+                        switch (records[index].getType())
+                        {
+                            case Type.SRV :
+                                SRVRecord srv = (SRVRecord) records[index];
+                                if (srv.getTTL() > 0)
+                                {
+                                    if (!services.containsKey(srv.getName()))
+                                    {
+                                        service = new ServiceInstance(srv);
+                                        if (!services.containsKey(srv.getName()))
+                                        {
+                                            service = new ServiceInstance(srv);
+                                            services.put(srv.getName(), service);
+                                            listenerProcessor.getDispatcher().serviceDiscovered(id, service);
+                                        }
+                                    }
+                                } else
+                                {
+                                    service = (ServiceInstance) services.get(srv.getName());
+                                    if (service != null)
+                                    {
+                                        services.remove(service.getName());
+                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                                    }
+                                }
+                                break;
+                            case Type.PTR :
+                                PTRRecord ptr = (PTRRecord) records[index];
+                                
+                                if (ptr.getTTL() > 0)
+                                {
+                                    ServiceInstance[] instances = extractServiceInstances(querier.send(Message.newQuery(Record.newRecord(ptr.getTarget(), Type.ANY, dclass))));
+                                    if (instances.length > 0)
+                                    {
+                                        for (int i = 0; i < instances.length; i++)
+                                        {
+                                            if (!services.containsKey(instances[i].getName()))
+                                            {
+                                                services.put(instances[i].getName(), instances[i]);
+                                                listenerProcessor.getDispatcher().serviceDiscovered(id, instances[i]);
+                                            }
+                                        }
+                                    }
+                                } else
+                                {
+                                    service = (ServiceInstance) services.get(ptr.getTarget());
+                                    if (service != null)
+                                    {
+                                        services.remove(service.getName());
+                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                                    }
+                                }
+                                break;
+                        }
+                    } catch (IOException e)
+                    {
+                        System.err.print("error parsing SRV record - " + e.getMessage());
+                        if (Options.check("mdns_verbose"))
+                        {
+                            e.printStackTrace(System.err);
+                        }
+                    }
+                }
+            }
+        }
+
+
+        public void handleException(Object id, Exception e)
+        {
+            listenerProcessor.getDispatcher().handleException(id, e);
+        }
+        
+        
+        public void start()
+        {
+            browser.start(this);
+        }
+
+
+        public void close()
+        {
+            try
+            {
+                listenerProcessor.close();
+            } catch (IOException e)
+            {
+                // ignore
+            }
+            
+            try
+            {
+                browser.close();
+            } catch (IOException e)
+            {
+                // ignore
+            }
+        }
+    }
     
     
+    protected ScheduledExecutorService scheduledExecutor = null;
+
+    protected ArrayList<ServiceDiscoveryOperation> discoveryOperations = new ArrayList<ServiceDiscoveryOperation>();
+    
+
     public ServiceInstance register(ServiceInstance service)
     throws IOException
     {
@@ -540,11 +761,91 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             unregister.close();
         }
     }
+    
+    
+    /**
+     * Starts a Service Discovery Browse Operation and returns an identifier to be used later to stop 
+     * the Service Discovery Browse Operation.
+     * 
+     * @param browser An instance of a Browse object containing the mDNS/DNS Queries
+     * @param listener The DNS Service Discovery Listener to which the events are sent.
+     * @return An Object that identifies the Service Discovery Browse Operation.
+     * @throws IOException
+     */
+    public Object startServiceDiscovery(Browse browser, DNSSDListener listener)
+    throws IOException
+    {
+        if (scheduledExecutor == null || scheduledExecutor.isShutdown())
+        {
+            scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
+            {
+                public Thread newThread(Runnable r)
+                {
+                    return new Thread(r, "Service Discover Browser Thread");
+                }
+            });
+        }
+        browser.setScheduledExecutor(scheduledExecutor);
+        
+        ServiceDiscoveryOperation discoveryOperation = new ServiceDiscoveryOperation(browser, listener);
+        
+        synchronized (discoveryOperations)
+        {
+            this.discoveryOperations.add(discoveryOperation);
+        }
+        discoveryOperation.start();
+        
+        return discoveryOperation;
+    }
+    
+    
+    /**
+     * Stops a Service Discovery Browse Operation.
+     * 
+     * @param id The object identifying the Service Discovery Browse Operation that was returned by "startServiceDiscovery" 
+     * @return true, if the Service Discovery Browse Operation was successfully stopped, otherwise false.
+     * @throws IOException
+     */
+    public boolean stopServiceDiscovery(Object id)
+    throws IOException
+    {
+        synchronized (discoveryOperations)
+        {
+            int pos = discoveryOperations.indexOf(id);
+            if (pos >= 0)
+            {
+                ServiceDiscoveryOperation discoveryOperation = discoveryOperations.get(pos);
+                if (discoveryOperation != null)
+                {
+                    this.discoveryOperations.remove(pos);
+                    discoveryOperation.close();
+                    return true;
+                }
+            }
+        }
+        
+        if (id instanceof ServiceDiscoveryOperation)
+        {
+            ((ServiceDiscoveryOperation) id).close();
+            return true;
+        }
+        
+        return false;
+    }
 
 
     public void close()
     throws IOException
     {
-        // TODO Auto-generated method stub
+        for (ServiceDiscoveryOperation discoveryOperation : discoveryOperations)
+        {
+            try
+            {
+                discoveryOperation.close();
+            } catch (Exception e)
+            {
+                // ignore
+            }
+        }
     }
 }
