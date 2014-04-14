@@ -400,7 +400,7 @@ public class MulticastDNSQuerier implements Querier
     public MulticastDNSQuerier(boolean ipv4, boolean ipv6)
     throws IOException
     {
-        this(ipv4, ipv6, new Resolver[] {new ExtendedResolver()});
+        this(ipv4, ipv6, (Resolver[]) null);
     }
     
     
@@ -428,7 +428,13 @@ public class MulticastDNSQuerier implements Querier
     public MulticastDNSQuerier(boolean ipv4, boolean ipv6, Resolver[] unicastResolvers)
     throws IOException
     {
-        this.unicastResolvers = unicastResolvers;
+        if (unicastResolvers == null || unicastResolvers.length == 0)
+        {
+            this.unicastResolvers = new Resolver[] {new ExtendedResolver()};
+        } else
+        {
+            this.unicastResolvers = unicastResolvers;
+        }
         
         Querier ipv4Responder = null;
         Querier ipv6Responder = null;
