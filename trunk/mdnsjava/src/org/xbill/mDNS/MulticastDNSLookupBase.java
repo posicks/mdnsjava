@@ -413,6 +413,12 @@ public abstract class MulticastDNSLookupBase implements Closeable
     }
     
     
+    public Name[] getSearchPath()
+    {
+        return searchPath;
+    }
+    
+    
     /**
      * Sets the names to browse
      *  
@@ -484,6 +490,12 @@ public abstract class MulticastDNSLookupBase implements Closeable
             }
             addNames(newnames);
         }
+    }
+    
+    
+    public Name[] getNames()
+    {
+        return names;
     }
     
     
