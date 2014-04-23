@@ -1,5 +1,6 @@
 package org.xbill.mDNS;
 
+import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -20,7 +21,7 @@ import org.xbill.DNS.Section;
 import org.xbill.DNS.Type;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class Resolve extends MulticastDNSLookupBase
+public class Lookup extends MulticastDNSLookupBase
 {
     public static class Domain
     {
@@ -97,63 +98,63 @@ public class Resolve extends MulticastDNSLookupBase
     }
     
     
-    protected Resolve()
+    protected Lookup()
     throws IOException
     {
         super();
     }
     
     
-    public Resolve(Name... names)
+    public Lookup(Name... names)
     throws IOException
     {
         super(names);
     }
     
     
-    public Resolve(Name[] names, int type)
+    public Lookup(Name[] names, int type)
     throws IOException
     {
         super(names, type);
     }
     
     
-    public Resolve(Name[] names, int type, int dclass)
+    public Lookup(Name[] names, int type, int dclass)
     throws IOException
     {
         super(names, type, dclass);
     }
     
     
-    protected Resolve(Message message)
+    protected Lookup(Message message)
     throws IOException
     {
         super(message);
     }
     
     
-    public Resolve(String... names)
+    public Lookup(String... names)
     throws IOException
     {
         super(names);
     }
     
     
-    public Resolve(String[] names, int type)
+    public Lookup(String[] names, int type)
     throws IOException
     {
         super(names, type);
     }
     
     
-    public Resolve(String[] names, int type, int dclass)
+    public Lookup(String[] names, int type, int dclass)
     throws IOException
     {
         super(names, type, dclass);
     }
     
     
-    public void resolveRecordsAsync(final RecordListener listener)
+    public void lookupRecordsAsync(final RecordListener listener)
     throws IOException
     {
         for (Message query : queries)
@@ -179,7 +180,7 @@ public class Resolve extends MulticastDNSLookupBase
     }
     
     
-    public Record[] resolveRecords()
+    public Record[] lookupRecords()
     throws IOException
     {
         final List results = new ArrayList();
@@ -212,7 +213,7 @@ public class Resolve extends MulticastDNSLookupBase
     }
     
     
-    public ServiceInstance[] resolveServices()
+    public ServiceInstance[] lookupServices()
     throws IOException
     {
         List results = new ArrayList();
@@ -242,7 +243,7 @@ public class Resolve extends MulticastDNSLookupBase
     }
 
     
-    public Domain[] resolveDomains()
+    public Domain[] lookupDomains()
     throws IOException
     {
         final List domains = Collections.synchronizedList(new LinkedList());
@@ -253,10 +254,10 @@ public class Resolve extends MulticastDNSLookupBase
         {
             for (final Name name : names)
             {
-                Resolve resolve = new Resolve(new Name[]{name}, Type.PTR, DClass.ANY);
-                resolvers.add(resolve);
+                Lookup lookup = new Lookup(new Name[]{name}, Type.PTR, DClass.ANY);
+                resolvers.add(lookup);
                 
-                Name[] defaultBrowseDomains = resolve.getQuerier().getMulticastDomains();
+                Name[] defaultBrowseDomains = lookup.getQuerier().getMulticastDomains();
                 if (defaultBrowseDomains != null && defaultBrowseDomains.length > 0)
                 {
                     for (int index = 0; index < defaultBrowseDomains.length; index++)
@@ -269,7 +270,7 @@ public class Resolve extends MulticastDNSLookupBase
                     }
                 }
                 
-                resolve.resolveRecordsAsync(new RecordListener()
+                lookup.lookupRecordsAsync(new RecordListener()
                 {
                     public void receiveRecord(Object id, Record record)
                     {
@@ -333,8 +334,8 @@ public class Resolve extends MulticastDNSLookupBase
             
             for (Object o : resolvers)
             {
-                Resolve r = (Resolve) o;
-                r.close();
+                Closeable c = (Closeable) o;
+                c.close();
             }
         }
             

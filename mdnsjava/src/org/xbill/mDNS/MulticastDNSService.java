@@ -393,10 +393,10 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
 
-                Resolve resolver = new Resolve(new Name[]{service.getName()}, Type.ANY);
+                Lookup lookup = new Lookup(new Name[]{service.getName()}, Type.ANY);
                 try
                 {
-                    instances = resolver.resolveServices();
+                    instances = lookup.lookupServices();
                     
                     if (instances != null && instances.length > 0)
                     {
@@ -420,7 +420,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 {
                     try
                     {
-                        resolver.close();
+                        lookup.close();
                     } catch (IOException e)
                     {
                         // ignore
@@ -500,14 +500,14 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 }
             }
             
-            Resolve resolve = new Resolve(new Name[]{serviceName.getServiceTypeName()}, Type.PTR,DClass.ANY);
+            Lookup lookup = new Lookup(new Name[]{serviceName.getServiceTypeName()}, Type.PTR,DClass.ANY);
             try
             {
-                Record[] records = resolve.resolveRecords();
+                Record[] records = lookup.lookupRecords();
                 return records == null || records.length == 0;
             } finally
             {
-                resolve.close();
+                lookup.close();
             }
         }
         

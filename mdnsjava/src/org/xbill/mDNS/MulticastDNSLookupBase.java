@@ -277,34 +277,39 @@ public abstract class MulticastDNSLookupBase implements Closeable
     
     protected void buildQueries()
     {
-        queries = new Message[] {new Message()};
-        for (int index = 0; index < names.length; index++)
+        if (names != null && searchPath != null)
         {
-            Name name = this.names[index];
-            if (name.isAbsolute())
+            Message[] newQueries = new Message[] {new Message()};
+            for (int index = 0; index < names.length; index++)
             {
-                queries[0].addRecord(Record.newRecord(name, this.type, this.dclass), Section.QUESTION);
-            } else
-            {
-                queries = new Message[searchPath.length];
-                for (int i = 0; i < searchPath.length; i++)
+                Name name = this.names[index];
+                if (name.isAbsolute())
                 {
-                    queries[i] = new Message();
-                    Name absoluteName;
-                    try
+                    newQueries[0].addRecord(Record.newRecord(name, this.type, this.dclass), Section.QUESTION);
+                } else
+                {
+                    newQueries = new Message[searchPath.length];
+                    for (int i = 0; i < searchPath.length; i++)
                     {
-                        absoluteName = Name.concatenate(name, searchPath[i]);
-                        queries[i].addRecord(Record.newRecord(absoluteName, this.type, this.dclass), Section.QUESTION);
-                    } catch (NameTooLongException e)
-                    {
-                        if (Options.check("mdns_verbose"))
+                        newQueries[i] = new Message();
+                        Name absoluteName;
+                        try
                         {
-                            System.err.println(e.getMessage());
-                            e.printStackTrace(System.err);
+                            absoluteName = Name.concatenate(name, searchPath[i]);
+                            newQueries[i].addRecord(Record.newRecord(absoluteName, this.type, this.dclass), Section.QUESTION);
+                        } catch (NameTooLongException e)
+                        {
+                            if (Options.check("mdns_verbose"))
+                            {
+                                System.err.println(e.getMessage());
+                                e.printStackTrace(System.err);
+                            }
                         }
                     }
                 }
             }
+            
+            queries = newQueries;
         }
     }
     
@@ -340,6 +345,7 @@ public abstract class MulticastDNSLookupBase implements Closeable
     public void setSearchPath(Name[] domains)
     {
         this.searchPath = domains;
+        buildQueries();
     }
     
     
@@ -363,7 +369,121 @@ public abstract class MulticastDNSLookupBase implements Closeable
         {
             newdomains[i] = Name.fromString(domains[i], Name.root);
         }
-        this.searchPath = newdomains;
+        setSearchPath(newdomains);
+    }
+    
+    
+    /**
+     * Adds a domain to the search path that is used during lookups.
+     * 
+     * @param searchPath Name to add to search path
+     */
+    public void addSearchPath(Name[] searchPath)
+    {
+        if (searchPath != null && searchPath.length > 0)
+        {
+            Name[] temp = this.searchPath;
+            Name[] newNames = new Name[temp.length + searchPath.length];
+            System.arraycopy(temp, 0, newNames, 0, temp.length);
+            System.arraycopy(temp, temp.length, newNames, temp.length, names.length);
+            this.searchPath = newNames;
+            buildQueries();
+        }
+    }
+    
+    
+    /**
+     * Adds a domain to the search path that is used during lookups.
+     * 
+     * @param searchPath Name to add to search path
+     * @throws TextParseException If name is invalid
+     */
+    public void addSearchPath(String[] searchPath)
+    throws TextParseException
+    {
+        if (searchPath != null && searchPath.length > 0)
+        {
+            Name[] newnames = new Name[searchPath.length];
+            for (int i = 0; i < searchPath.length; i++)
+            {
+                newnames[i] = Name.fromString(searchPath[i], Name.root);
+            }
+            addSearchPath(newnames);
+        }
+    }
+    
+    
+    /**
+     * Sets the names to browse
+     *  
+     * @param names Names to browse
+     */
+    public void setNames(Name[] names)
+    {
+        this.names = names;
+        buildQueries();
+    }
+    
+    
+    /**
+     * Sets the names to browse
+     *  
+     * @param names Names to browse
+     */
+    public void setNames(String[] names)
+    throws TextParseException
+    {
+        if (names == null)
+        {
+            this.names = null;
+            return;
+        }
+        Name[] newnames = new Name[names.length];
+        for (int i = 0; i < names.length; i++)
+        {
+            newnames[i] = Name.fromString(names[i], Name.root);
+        }
+        setNames(newnames);
+    }
+    
+    
+    /**
+     * Adds the name to the list of names to browse
+     * 
+     * @param names Names to add
+     */
+    public void addNames(Name[] names)
+    {
+        if (names != null && names.length > 0)
+        {
+            Name[] temp = this.names;
+            Name[] newNames = new Name[temp.length + names.length];
+            System.arraycopy(temp, 0, newNames, 0, temp.length);
+            System.arraycopy(temp, temp.length, newNames, temp.length, names.length);
+            this.names = newNames;
+            buildQueries();
+        }
+    }
+    
+    
+    /**
+     * Adds the name to the list of names to browse
+     * 
+     * @param names Names to add
+     * @throws TextParseException If name is invalid
+     */
+    public void addNames(String[] names)
+    throws TextParseException
+    {
+        if (names != null && names.length > 0)
+        {
+            Name[] newnames = new Name[names.length];
+            for (int i = 0; i < names.length; i++)
+            {
+                newnames[i] = Name.fromString(names[i], Name.root);
+            }
+            addNames(newnames);
+        }
     }
     
     

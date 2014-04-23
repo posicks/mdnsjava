@@ -31,8 +31,6 @@ public class Browse extends MulticastDNSLookupBase
      */
     protected class BrowseOperation implements ResolverListener, Runnable
     {
-        private Message[] queries;
-        
         private int broadcastDelay = 0;
         
         private ListenerProcessor<ResolverListener> listenerProcessor = new ListenerProcessor<ResolverListener>(ResolverListener.class);
@@ -40,16 +38,14 @@ public class Browse extends MulticastDNSLookupBase
         private long lastBroadcast;
         
         
-        BrowseOperation(Message... query)
+        BrowseOperation()
         {
-            this(null, query);
+            this(null);
         }
 
 
-        BrowseOperation(ResolverListener listener, Message... query)
+        BrowseOperation(ResolverListener listener)
         {
-            this.queries = query;
-            
             if (listener != null)
             {
                 registerListener(listener);
@@ -306,7 +302,7 @@ public class Browse extends MulticastDNSLookupBase
             }
         }
         
-        BrowseOperation browseOperation = new BrowseOperation(listener, queries);
+        BrowseOperation browseOperation = new BrowseOperation(listener);
         browseOperations.add(browseOperation);
         querier.registerListener(browseOperation);
         browseOperation.registerListener(listener);
