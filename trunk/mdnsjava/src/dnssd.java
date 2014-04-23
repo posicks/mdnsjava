@@ -16,8 +16,8 @@ import org.xbill.mDNS.Browse;
 import org.xbill.mDNS.DNSSDListener;
 import org.xbill.mDNS.ExecutionTimer;
 import org.xbill.mDNS.MulticastDNSService;
-import org.xbill.mDNS.Resolve;
-import org.xbill.mDNS.Resolve.Domain;
+import org.xbill.mDNS.Lookup;
+import org.xbill.mDNS.Lookup.Domain;
 import org.xbill.mDNS.ServiceInstance;
 import org.xbill.mDNS.ServiceName;
 
@@ -87,13 +87,13 @@ public class dnssd
                         case 'E':
                             // Enumerate recommended registration domains
                             ExecutionTimer.start();
-                            Resolve resolve = new Resolve(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, MulticastDNSService.REGISTRATION_DOMAIN_NAME);
+                            Lookup lookup = new Lookup(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, MulticastDNSService.REGISTRATION_DOMAIN_NAME);
                             try
                             {
-                                domains = resolve.resolveDomains();
+                                domains = lookup.lookupDomains();
                             } finally
                             {
-                                resolve.close();
+                                lookup.close();
                             }
                             System.out.println("Registration Domains:");
                             printArray(domains, "\t%s\n");
@@ -102,13 +102,13 @@ public class dnssd
                         case 'F':
                             // Enumerate recommended browse domains
                             ExecutionTimer.start();
-                            resolve = new Resolve(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                            lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
                             try
                             {
-                                domains = resolve.resolveDomains();
+                                domains = lookup.lookupDomains();
                             } finally
                             {
-                                resolve.close();
+                                lookup.close();
                             }
                             System.out.println("Browse Domains:");
                             printArray(domains, "\t%s\n");
@@ -126,13 +126,13 @@ public class dnssd
                             {
                                 domainNames = new ArrayList();
                                 
-                                resolve = new Resolve(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                                lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
                                 try
                                 {
-                                    domains = resolve.resolveDomains();
+                                    domains = lookup.lookupDomains();
                                 } finally
                                 {
-                                    resolve.close();
+                                    lookup.close();
                                 }
                                 
                                 if (domains != null && domains.length > 0)
@@ -218,13 +218,13 @@ public class dnssd
                             {
                                 domainNames = new ArrayList();
                                 
-                                resolve = new Resolve(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                                lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
                                 try
                                 {
-                                    domains = resolve.resolveDomains();
+                                    domains = lookup.lookupDomains();
                                 } finally
                                 {
-                                    resolve.close();
+                                    lookup.close();
                                 }
                                 
                                 if (domains != null && domains.length > 0)
@@ -255,13 +255,13 @@ public class dnssd
                             printArray(serviceTypes, "\t%s\n");
                             System.out.println();
                             System.out.println("Services Found:");
-                            resolve = new Resolve(serviceTypes);
+                            lookup = new Lookup(serviceTypes);
                             try
                             {
-                                printArray(resolve.resolveServices(), "\t%s\n");
+                                printArray(lookup.lookupServices(), "\t%s\n");
                             } finally
                             {
-                                resolve.close();
+                                lookup.close();
                             }
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
                             break;
@@ -352,17 +352,17 @@ public class dnssd
                                 throw new IllegalArgumentException("Invalid DClass \"" + args[3] + "\" specified.");
                             }
                             ExecutionTimer.start();
-                            resolve = new Resolve(new Name[]{new Name(args[1])}, type, dclass);
+                            lookup = new Lookup(new Name[]{new Name(args[1])}, type, dclass);
                             try
                             {
-                                Record[] records = resolve.resolveRecords();
+                                Record[] records = lookup.lookupRecords();
                                 System.out.println("Query Resource Records :\n\tName: " + args[1] + ", Type: " + Type.string(type) + ", DClass: " + DClass.string(dclass));
                                 System.out.println();
                                 System.out.println("Resource Records Found:");
                                 printArray(records, "\t%s\n");
                             } finally
                             {
-                                resolve.close();
+                                lookup.close();
                             }
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
                             break;
