@@ -18,6 +18,7 @@ import org.xbill.DNS.Rcode;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
+import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
@@ -25,20 +26,20 @@ public class Lookup extends MulticastDNSLookupBase
 {
     public static class Domain
     {
-        private String name;
+        private Name name;
         
         private boolean isDefault;
         
         private boolean isLegacy;
         
         
-        protected Domain(String name)
+        protected Domain(Name name)
         {
             this(false, false, name);
         }
         
         
-        protected Domain(boolean isDefault, boolean isLegacy, String name)
+        protected Domain(boolean isDefault, boolean isLegacy, Name name)
         {
             this.name = name;
             this.isDefault = isDefault; 
@@ -46,7 +47,7 @@ public class Lookup extends MulticastDNSLookupBase
         }
 
 
-        public String getName()
+        public Name getName()
         {
             return name;
         }
@@ -262,7 +263,7 @@ public class Lookup extends MulticastDNSLookupBase
                 {
                     for (int index = 0; index < defaultBrowseDomains.length; index++)
                     {
-                        Domain d = new Domain(false, false, defaultBrowseDomains[index].toString());
+                        Domain d = new Domain(false, false, defaultBrowseDomains[index]);
                         if (!domains.contains(d))
                         {
                             domains.add(d);
@@ -285,24 +286,30 @@ public class Lookup extends MulticastDNSLookupBase
                                 }
                                 
                                 // Check if domain is already in the list, add if not, otherwise manipulate booleans.
-                                Domain domain = new Domain(false, false, value);
-                                int index = domains.indexOf(domain);
-                                if (index >= 0)
+                                try
                                 {
-                                    domain = (Domain) domains.get(index);
-                                } else
+                                    Domain domain = new Domain(false, false, new Name(value));
+                                    int index = domains.indexOf(domain);
+                                    if (index >= 0)
+                                    {
+                                        domain = (Domain) domains.get(index);
+                                    } else
+                                    {
+                                        domains.add(domain);
+                                    }
+                                    
+                                    switch (name.toString().charAt(0))
+                                    {
+                                        case 'd' :
+                                            domain.isDefault = true;
+                                            break;
+                                        case 'l' :
+                                            domain.isLegacy = true;
+                                            break;
+                                    }
+                                } catch (TextParseException e)
                                 {
-                                    domains.add(domain);
-                                }
-                                
-                                switch (name.toString().charAt(0))
-                                {
-                                    case 'd' :
-                                        domain.isDefault = true;
-                                        break;
-                                    case 'l' :
-                                        domain.isLegacy = true;
-                                        break;
+                                    e.printStackTrace(System.err);
                                 }
                             }
                         }

@@ -141,7 +141,7 @@ public class dnssd
                                     {
                                         if (domains[index] != null && !domainNames.contains(domains[index]))
                                         {
-                                            domainNames.add(new Name(domains[index].getName()));
+                                            domainNames.add(domains[index].getName());
                                         }
                                     }
                                 }
@@ -233,7 +233,7 @@ public class dnssd
                                     {
                                         if (domains[index] != null && !domainNames.contains(domains[index]))
                                         {
-                                            domainNames.add(new Name(domains[index].getName()));
+                                            domainNames.add(domains[index].getName());
                                         }
                                     }
                                 }
