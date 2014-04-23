@@ -305,7 +305,6 @@ public class Browse extends MulticastDNSLookupBase
         BrowseOperation browseOperation = new BrowseOperation(listener);
         browseOperations.add(browseOperation);
         querier.registerListener(browseOperation);
-        browseOperation.registerListener(listener);
         
         scheduledExecutor.submit(browseOperation);
     }
