@@ -28,7 +28,7 @@ import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
-public abstract class MulticastDNSLookupBase implements Closeable
+public abstract class MulticastDNSLookupBase implements Closeable, Constants
 {
     protected static Querier defaultQuerier;
 
