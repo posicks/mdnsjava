@@ -212,6 +212,21 @@ public class ServiceInstance implements Serializable
     }
     
     
+    public void addText(String name, String value)
+    {
+        this.textAttributes.put(name, value);
+    }
+    
+    
+    public void addText(Map textRecords)
+    {
+        if (textRecords != null)
+        {
+            this.textAttributes.putAll(textRecords);
+        }
+    }
+    
+    
     public void addTextRecords(TXTRecord... textRecords)
     {
         Map newTextRecords = parseTextRecords(textRecords);
