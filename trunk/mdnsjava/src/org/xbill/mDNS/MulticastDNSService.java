@@ -225,7 +225,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 Name fullName = new Name(service.getName().getFullType() + "." + domain);
                 Name typeName = new Name(service.getName().getType() + "." + domain);
                 
-                PTRRecord serviceTypeReg = new PTRRecord(new Name(SERVICES_NAME + "." + domain), DClass.IN, DEFAULT_SRV_TTL, service.getName());
+                PTRRecord serviceTypeReg1 = new PTRRecord(new Name(SERVICES_NAME + "." + domain), DClass.IN, DEFAULT_SRV_TTL, typeName);
+                PTRRecord serviceTypeReg2 = new PTRRecord(new Name(SERVICES_NAME + "." + domain), DClass.IN, DEFAULT_SRV_TTL, fullName);
                 PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
                 PTRRecord ptrFulName = new PTRRecord(fullName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
                 SRVRecord srv = new SRVRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
@@ -255,9 +256,10 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
                 
+                update.add(serviceTypeReg1);
+                update.add(serviceTypeReg2);
                 update.add(ptrType);
                 update.add(ptrFulName);
-                update.add(serviceTypeReg);
                 
                 update.addRecord(addressNSEC, Section.ADDITIONAL);
                 update.addRecord(serviceNSEC, Section.ADDITIONAL);
