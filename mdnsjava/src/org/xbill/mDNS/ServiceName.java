@@ -81,7 +81,7 @@ public class ServiceName extends Name
                         break;
                     case 3:
                         StringBuilder sb = new StringBuilder();
-                        for (int i = offsets[3]; i <= offsets[2]; i++)
+                        for (int i = offsets[3]; i < offsets[2]; i++)
                         {
                             sb.append(byteString(labels[i])).append(".");
                         }
@@ -116,7 +116,10 @@ public class ServiceName extends Name
             StringBuilder domain = new StringBuilder();
             for (int index = offsets[0] + 1; index < labels.length ; index++)
             {
-                domain.append(labels[index] == null || labels[index].length <= 1 ? "." : byteString(labels[index]));
+                if (labels[index] != null && labels[index][0] > 0)
+                {
+                    domain.append(byteString(labels[index])).append(".");
+                }
             }
             this.domain = domain.toString();
         } else
@@ -168,7 +171,7 @@ public class ServiceName extends Name
     public static void main(String... args)
     throws TextParseException
     {
-        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)._syncmate._tcp.local.");
+        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)_test._sub._syncmate._tcp.local.");
 
         ServiceName name = new ServiceName(serviceName);
         System.out.println("Service Name = " + name);
