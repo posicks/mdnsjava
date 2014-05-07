@@ -48,25 +48,25 @@ public class ServiceInstance implements Serializable
     }
     
     
-    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host, long ttl, InetAddress[] addresses, Collection textRecords)
+    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host/*, long ttl*/, InetAddress[] addresses, Collection textRecords)
     {
-        this(name, priority, weight, port, host, ttl, addresses, parseTextRecords(textRecords));
+        this(name, priority, weight, port, host/*, ttl*/, addresses, parseTextRecords(textRecords));
     }
     
     
-    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host, long ttl, InetAddress[] addresses, TXTRecord... textRecords)
+    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host/*, long ttl*/, InetAddress[] addresses, TXTRecord... textRecords)
     {
-        this(name, priority, weight, port, host, ttl, addresses, parseTextRecords(textRecords));
+        this(name, priority, weight, port, host/*, ttl*/, addresses, parseTextRecords(textRecords));
     }
     
     
-    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host, long ttl, InetAddress[] addresses, String... textRecords)
+    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host/*, long ttl*/, InetAddress[] addresses, String... textRecords)
     {
-        this(name, priority, weight, port, host, ttl, addresses, parseTextRecords(textRecords));
+        this(name, priority, weight, port, host/*, ttl*/, addresses, parseTextRecords(textRecords));
     }
     
     
-    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host, long ttl, InetAddress[] addresses, Map textAttributes)
+    public ServiceInstance(ServiceName name, int priority, int weight, int port, Name host/*, long ttl */, InetAddress[] addresses, Map textAttributes)
     {
         super();
         this.name = name;
@@ -98,7 +98,7 @@ public class ServiceInstance implements Serializable
     public ServiceInstance(SRVRecord srv)
     throws TextParseException
     {
-        this(new ServiceName(srv.getName()), srv.getPriority(), srv.getWeight(), srv.getPort(), srv.getTarget(), srv.getTTL(), null, (Map) null);
+        this(new ServiceName(srv.getName()), srv.getPriority(), srv.getWeight(), srv.getPort(), srv.getTarget(), null, (Map) null);
     }
 
 
@@ -143,11 +143,12 @@ public class ServiceInstance implements Serializable
         return port;
     }
 
-
+/*
     public long getTTL()
     {
         return ttl;
     }
+*/
 
 
     public String[] getText()

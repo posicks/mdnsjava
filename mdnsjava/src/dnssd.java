@@ -308,7 +308,7 @@ public class dnssd
                             }
                             ExecutionTimer.start();
                             mDNSService = new MulticastDNSService();
-                            ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname, MulticastDNSService.DEFAULT_SRV_TTL, addresses, txtValues);
+                            ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname/*, MulticastDNSService.DEFAULT_SRV_TTL*/, addresses, txtValues);
                             ServiceInstance registeredService = mDNSService.register(service);
                             if (registeredService != null)
                             {
