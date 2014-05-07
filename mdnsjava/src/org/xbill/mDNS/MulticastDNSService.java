@@ -222,10 +222,12 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 Name domain = new Name(service.getName().getDomain());
                 final Update update = new Update(domain);
                 
-                Name typeName = new Name(service.getName().getFullType() + "." + domain);
+                Name fullName = new Name(service.getName().getFullType() + "." + domain);
+                Name typeName = new Name(service.getName().getType() + "." + domain);
                 
                 PTRRecord serviceTypeReg = new PTRRecord(new Name(SERVICES_NAME + "." + domain), DClass.IN, DEFAULT_SRV_TTL, service.getName());
-                PTRRecord ptr = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
+                PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
+                PTRRecord ptrFulName = new PTRRecord(fullName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
                 SRVRecord srv = new SRVRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
                 TXTRecord txt = new TXTRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
                 NSECRecord serviceNSEC = new NSECRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, service.getName(), new int[]{Type.TXT, Type.SRV});
@@ -253,7 +255,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
                 
-                update.add(ptr);
+                update.add(ptrType);
+                update.add(ptrFulName);
                 update.add(serviceTypeReg);
                 
                 update.addRecord(addressNSEC, Section.ADDITIONAL);
@@ -264,15 +267,21 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 {
                     public void receiveMessage(Object id, Message m)
                     {
-                        replies.add(m);
-                        replies.notifyAll();
+                        synchronized (replies)
+                        {
+                            replies.add(m);
+                            replies.notifyAll();
+                        }
                     }
                     
                     
                     public void handleException(Object id, Exception e)
                     {
-                        replies.add(e);
-                        replies.notifyAll();
+                        synchronized (replies)
+                        {
+                            replies.add(e);
+                            replies.notifyAll();
+                        }
                     }
                 };
                 
