@@ -86,6 +86,8 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected InetAddress address;
     
+    protected boolean ipv6;
+    
     protected int port;
     
     protected int mtu = DEFAULT_MTU;
@@ -100,6 +102,8 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         setAddress(address);
         setPort(port);
         
+        ipv6 = address.getAddress().length > 4;
+        
         if (listener != null)
         {
             registerListener(listener);
@@ -107,11 +111,11 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     }
     
     
-    public void send(byte[] data, boolean remember)
+    public void send(byte[] data/*, boolean remember*/)
     throws IOException
     {
-        if (!remember)
-        {
+//        if (!remember)
+//        {
             synchronized (sentPackets)
             {
                 for (int index = 0; index < sentPackets.length - 1; index++)
@@ -120,20 +124,14 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                 }
                 sentPackets[0] = data;
             }
-        }
+//        }
         
-        send(data);
+        _send(data);
     }
     
     
-    protected abstract void send(byte[] data)
+    protected abstract void _send(byte[] data)
     throws IOException;
-    
-    
-    public void setMTU(int mtu)
-    {
-        this.mtu = mtu;
-    }
     
     
     public int getMTU()
@@ -163,6 +161,18 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public int getPort()
     {
         return port;
+    }
+
+
+    public boolean isIPv6()
+    {
+        return ipv6;
+    }
+
+
+    public boolean isIPv4()
+    {
+        return !ipv6;
     }
     
     

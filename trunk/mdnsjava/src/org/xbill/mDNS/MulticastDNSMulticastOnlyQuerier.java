@@ -169,44 +169,37 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * Resolver Listener that replies to queries from the network.
      * 
-     * TODO: Implement Truncated packets and Known-Answer Suppression. 
-     * 
      * @author Steve Posick
      */
-    public static class MulticastDNSResponder implements ResolverListener
+    public class MulticastDNSResponder implements ResolverListener
     {
-        private boolean ignoreTruncation;
-        
-        private MulticastDNSCache cache;
-        
-        private Querier querier;
-        
-        
-        
-        public MulticastDNSResponder(MulticastDNSCache cache, Querier querier, boolean ignoreTruncation)
+        public MulticastDNSResponder()
         throws IOException
         {
-            this.cache = cache;
-            this.querier = querier;
-            this.ignoreTruncation = ignoreTruncation;
         }
         
         
         public void receiveMessage(Object id, Message message)
         {
             int rcode = message.getRcode();
-            int opcode = message.getHeader().getOpcode();
             Header header = message.getHeader();
+            int opcode =header.getOpcode();
             
             if (header.getFlag(Flags.QR))
             {
                 return;
             }
             
-            if (ignoreTruncation && header.getFlag(Flags.TC))
+            if (header.getFlag(Flags.TC))
             {
-                System.err.println("Truncated Message Ignored : " + "RCode: " + Rcode.string(rcode) + "; Opcode: " + Opcode.string(opcode));
-                return;
+                if (ignoreTruncation)
+                {
+                    System.err.println("Truncated Message : " + "RCode: " + Rcode.string(rcode) + "; Opcode: " + Opcode.string(opcode) + " - Ignoring subsequent known answer records.");
+                    return;
+                } else
+                {
+                    // TODO: Implement the reception of truncated packets. (wait 400 to 500 milliseconds for more packets) 
+                }
             }
             
             if (Options.check("mdns_verbose"))
@@ -225,17 +218,17 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
                         
                         if (response != null)
                         {
-                            Header h = response.getHeader();
-                            if (h.getCount(Section.ANSWER) > 0 ||
-                                h.getCount(Section.AUTHORITY) > 0 ||
-                                h.getCount(Section.ADDITIONAL) > 0)
+                            Header responseHeader = response.getHeader();
+                            if (responseHeader.getCount(Section.ANSWER) > 0 ||
+                                responseHeader.getCount(Section.AUTHORITY) > 0 ||
+                                responseHeader.getCount(Section.ADDITIONAL) > 0)
                             {
                                 if (Options.check("mdns_verbose"))
                                 {
                                     System.out.println("Query Reply ID: " + id + "\n" + response);
                                 }
-                                response.getHeader().setFlag(Flags.QR + Flags.AA);
-                                querier.broadcast(response, true);
+                                responseHeader.setFlag(Flags.QR + Flags.AA);
+                                writeResponse(response);
                             } else
                             {
                                 if (Options.check("mdns_verbose"))
@@ -248,6 +241,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
                     case Opcode.NOTIFY :
                     case Opcode.STATUS :
                     case Opcode.UPDATE :
+                        System.out.println("Received Invalid Request - Opcode: " + Opcode.string(opcode));
                         break;
                 }
             } catch (Exception e)
@@ -583,7 +577,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
 // TODO:        unicastReceiverThread = new Thread(unicastProcessor);
 //        unicastReceiverThread.start();
         
-        responder = new MulticastDNSResponder(cache, this, ignoreTruncation);
+        responder = new MulticastDNSResponder();
         registerListener(responder);
     }
     
@@ -621,16 +615,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
      * {@inheritDoc}
      */
     
-    public void setIgnoreTruncation(boolean flag)
-    {
-        this.ignoreTruncation = flag;
-    }
-    
-    
-    /**
-     * {@inheritDoc}
-     */
-    
     public void setEDNS(int level)
     {
         setEDNS(level, 0, 0, null);
@@ -640,7 +624,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setEDNS(int level, int payloadSize, int flags, List options)
     {
         if (level != 0 && level != -1)
@@ -660,7 +643,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setTSIGKey(TSIG key)
     {
         tsig = key;
@@ -670,7 +652,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setTimeout(int secs, int msecs)
     {
         timeoutValue = (long) secs * 1000L + (long) msecs;
@@ -680,7 +661,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setTimeout(int secs)
     {
         setTimeout(secs, 0);
@@ -690,7 +670,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setRetryWaitTime(int secs, int msecs)
     {
         responseWaitTime = (long) secs * 1000L + (long) msecs;
@@ -700,7 +679,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public void setRetryWaitTime(int secs)
     {
         setRetryWaitTime(secs, 0);
@@ -710,22 +688,18 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     /**
      * {@inheritDoc}
      */
-    
     public boolean isIPv4()
     {
-        // There are 4 bytes in IPv4 addresses
-        return multicastAddress.getAddress().length == 4;
+        return multicastProcessor.isIPv4();
     }
 
 
     /**
      * {@inheritDoc}
      */
-    
     public boolean isIPv6()
     {
-        // There are 4 bytes in IPv4 addresses
-        return multicastAddress.getAddress().length != 4;
+        return multicastProcessor.isIPv6();
     }
     
     
@@ -761,18 +735,17 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     {
         if (Options.check("mdns_verbose"))
         {
-            System.out.println("Sending Query to " + multicastAddress.getHostAddress() + ":" + port);
+            System.out.println("Broadcasting Query to " + multicastAddress.getHostAddress() + ":" + port);
         }
         
         Header header = message.getHeader();
-        
         boolean isUpdate = header.getOpcode() == Opcode.UPDATE;
         
         if (isUpdate)
         {
             cacher.receiveMessage(header.getID(), message);
             message.getHeader().setFlag(Flags.AA);
-            writeMessageToWire(convertUpdateToQueryResponse(message), false);
+            writeMessageToWire(convertUpdateToQueryResponse(message)/*, false*/);
         } else if (addKnownAnswers)
         {
             Message knownAnswer = cache.queryCache(message, Credibility.ANY);
@@ -791,10 +764,66 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
                 }
             }
             
-            writeMessageToWire(message, true);
+            writeMessageToWire(message/*, true*/);
         } else
         {
-            writeMessageToWire(message, true);
+            writeMessageToWire(message/*, true*/);
+        }
+    }
+    
+    
+    /**
+     * {@inheritDoc}
+     */
+    protected void writeResponse(final Message message)
+    throws IOException
+    {
+        if (Options.check("mdns_verbose"))
+        {
+            System.out.println("Writing Response to " + multicastAddress.getHostAddress() + ":" + port);
+        }
+        
+        Header header = message.getHeader();
+        boolean isUpdate = header.getOpcode() == Opcode.UPDATE;
+        
+        if (isUpdate)
+        {
+            cacher.receiveMessage(header.getID(), message);
+            header.setFlag(Flags.AA);
+            header.setRcode(0);
+            writeMessageToWire(convertUpdateToQueryResponse(message)/*, false*/);
+        } else
+        {
+            header.setFlag(Flags.QR + Flags.AA);
+            header.setRcode(0);
+            Message knownAnswer = cache.queryCache(message, Credibility.ANY);
+            for (Integer section : new Integer[] {Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY})
+            {
+                Record[] records = knownAnswer.getSectionArray(section);
+                if (records != null && records.length > 0)
+                {
+                    for (Record record : records)
+                    {
+                        if (!message.findRecord(record))
+                        {
+                            message.addRecord(record, section);
+                        }
+                    }
+                }
+            }
+            
+            // Set the high-order bit on the rrclass indicating the full RRSet is being sent.
+            for (Integer section : new Integer[] {Section.ANSWER, Section.ADDITIONAL})
+            {
+                Record[] records = message.getSectionArray(section);
+                for (Record record : records)
+                {
+                    MulticastDNSUtils.setDClassForRecord(record, record.getDClass() | 0x1000); 
+                }
+            }
+
+            
+            writeMessageToWire(message/*, true*/);
         }
     }
     
@@ -894,10 +923,11 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     }
 
 
-    protected void writeMessageToWire(Message message, boolean remember)
+    protected void writeMessageToWire(Message message/*, boolean remember*/)
     throws IOException
     {
-        message.getHeader().setID(0);
+        Header header = message.getHeader();
+        header.setID(0);
         applyEDNS(message);
         if (tsig != null)
         {
@@ -905,22 +935,36 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
         }
 
         final byte[] out = message.toWire(Message.MAXLENGTH);
-        final int udpSize = maxUDPSize(message);
-        
-        // TODO: Break into multiple messages with Truncated flag set 
-        if (out.length > udpSize)
+        final int maxUDPSize;
+        OPTRecord opt = message.getOPT();
+        if (opt != null)
         {
-            Message[] messages = MulticastDNSUtils.splitMessage(message);
-            for (int index = 0; index < messages.length; index++)
+            maxUDPSize = opt.getPayloadSize();
+        } else
+        {
+            maxUDPSize = multicastProcessor.getMaxPayloadSize();
+        }
+
+        // TODO: Break into multiple messages with Truncated flag set
+        if (out.length > maxUDPSize)
+        {
+            if (header.getFlag(Flags.QR))
             {
-                writeMessageToWire(messages[index], remember);
+                
+            } else
+            {
+                Message[] messages = MulticastDNSUtils.splitMessage(message);
+                for (int index = 0; index < messages.length; index++)
+                {
+                    writeMessageToWire(messages[index]/*, remember*/);
+                }
+                return;
             }
-            return;
         }
         
         try
         {
-            multicastProcessor.send(out, remember);
+            multicastProcessor.send(out/*, remember*/);
         } catch (Exception e)
         {
             resolverListenerDispatcher.handleException(message.getHeader().getID(), e);
@@ -1211,19 +1255,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     }
     
     
-    protected int maxUDPSize(Message query)
-    {
-        OPTRecord opt = query.getOPT();
-        if (opt == null)
-        {
-            return DEFAULT_UDPSIZE;
-        } else
-        {
-            return opt.getPayloadSize();
-        }
-    }
-    
-    
     protected int verifyTSIG(Message query, Message response, byte [] b, TSIG tsig)
     {
         if (tsig == null)
@@ -1288,5 +1319,11 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
     public ResolverListener unregisterListener(ResolverListener listener)
     {
         return resolverListenerProcessor.unregisterListener(listener);
+    }
+
+
+    public void setIgnoreTruncation(boolean ignoreTruncation)
+    {
+        this.ignoreTruncation = ignoreTruncation;
     }
 }
