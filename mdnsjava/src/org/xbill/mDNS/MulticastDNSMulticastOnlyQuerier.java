@@ -812,17 +812,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier
                 }
             }
             
-            // Set the high-order bit on the rrclass indicating the full RRSet is being sent.
-            for (Integer section : new Integer[] {Section.ANSWER, Section.ADDITIONAL})
-            {
-                Record[] records = message.getSectionArray(section);
-                for (Record record : records)
-                {
-                    MulticastDNSUtils.setDClassForRecord(record, record.getDClass() | 0x1000); 
-                }
-            }
-
-            
             writeMessageToWire(message/*, true*/);
         }
     }
