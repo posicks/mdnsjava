@@ -5,13 +5,16 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.MulticastSocket;
+import java.net.NetworkInterface;
+import java.net.SocketException;
+import java.util.Enumeration;
 
 import org.xbill.DNS.Options;
 
 public class DatagramProcessor extends NetworkProcessor
 {
     // The default UDP datagram payload size
-    public static final short DEFAULT_UDP_SIZE = 512;
+    protected int maxPayloadSize = 512;
 
     protected boolean isMulticast = false;
     
@@ -28,6 +31,7 @@ public class DatagramProcessor extends NetworkProcessor
             isMulticast = address.isMulticastAddress();
         }
         
+        NetworkInterface netIface = null;
         if (isMulticast)
         {
             MulticastSocket socket = new MulticastSocket(port);
@@ -39,15 +43,63 @@ public class DatagramProcessor extends NetworkProcessor
             
             socket.joinGroup(address);
             
+            netIface = socket.getNetworkInterface();
             this.socket = socket;
         } else
         {
             socket = new DatagramSocket(port);
         }
+        
+        // Determine maximum mDNS Payload size
+        if (netIface == null)
+        {
+            netIface = NetworkInterface.getByInetAddress(socket.getLocalAddress());
+            if (netIface == null)
+            {
+                InetAddress addr = socket.getInetAddress();
+                if (addr != null)
+                {
+                    netIface = NetworkInterface.getByInetAddress(addr);
+                }
+            }
+        }
+        
+        if (netIface != null)
+        {
+            try
+            {
+                mtu = netIface.getMTU();
+            } catch (SocketException e)
+            {
+                netIface = null;
+                System.err.println("Error getting MTU from Network Interface " + netIface + ".");
+            }
+        }
+        
+        if (netIface == null)
+        {
+            Enumeration<NetworkInterface> ifaces = NetworkInterface.getNetworkInterfaces();
+            int smallestMtu = DEFAULT_MTU;
+            while (ifaces.hasMoreElements())
+            {
+                NetworkInterface iface = ifaces.nextElement();
+                if (!iface.isLoopback() && !iface.isVirtual() && iface.isUp())
+                {
+                    int mtu = iface.getMTU();
+                    if (mtu < smallestMtu)
+                    {
+                        smallestMtu = mtu;
+                    }
+                }
+            }
+            mtu = smallestMtu;
+        }
+        
+        maxPayloadSize = mtu - 40 /* IPv6 Header Size */ - 8 /* UDP Header */;
     }
     
     
-    public void send(byte[] data)
+    public void _send(byte[] data)
     throws IOException
     {
         if (exit)
@@ -173,5 +225,11 @@ public class DatagramProcessor extends NetworkProcessor
     {
         super.setAddress(address);
         this.isMulticast = address.isMulticastAddress();
+    }
+    
+    
+    public int getMaxPayloadSize()
+    {
+        return maxPayloadSize;
     }
 }

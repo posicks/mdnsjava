@@ -277,7 +277,7 @@ public class MulticastDNSUtils
                 {
                     m = new Message();
                     Header header = (Header) message.getHeader().clone();
-                    header.setFlag(Flags.TC);
+//                    header.setFlag(Flags.TC);
                     header.setCount(0, 0);
                     header.setCount(1, 0);
                     header.setCount(2, 0);
