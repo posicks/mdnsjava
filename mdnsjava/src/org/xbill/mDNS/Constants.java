@@ -71,7 +71,7 @@ public interface Constants
     public static final String REGISTRATION_DOMAIN_NAME = "r._dns-sd._udp";
 
     /** The domain names used by DNS-Based Service Discovery (DNS-SD) [RFC 6763] to iterate registered service types */
-    public static final String SERVICES_NAME = "_services._dns-sd.udp";
+    public static final String SERVICES_NAME = "_services._dns-sd._udp";
 
     /** The Cache Flush flag used in Multicast DNS (mDNS) [RFC 6762] query responses */
     public static final int CACHE_FLUSH = 0x8000;

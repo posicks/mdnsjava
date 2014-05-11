@@ -46,7 +46,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
         {
             try
             {
-                defaultQuerier = new MulticastDNSQuerier(true, true);
+                defaultQuerier = new MulticastDNSQuerier(true, false);
             } catch (IOException e)
             {
                 System.err.println(e.getMessage());

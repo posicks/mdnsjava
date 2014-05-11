@@ -9,6 +9,8 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.DClass;
+import org.xbill.DNS.Flags;
+import org.xbill.DNS.Header;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
@@ -91,16 +93,13 @@ public class Browse extends MulticastDNSLookupBase
         
         boolean matchesBrowse(Message message)
         {
-            if (message != null)
+            Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+            
+            for (Record thatAnswer : thatAnswers)
             {
-                Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
-                
-                for (Record thatAnswer : thatAnswers)
+                if (answersQuery(thatAnswer))
                 {
-                    if (answersQuery(thatAnswer))
-                    {
-                        return true;
-                    }
+                    return true;
                 }
             }
             
@@ -122,9 +121,17 @@ public class Browse extends MulticastDNSLookupBase
 
         public void receiveMessage(Object id, Message message)
         {
-            if (matchesBrowse(message))
+            if (message != null)
             {
-                listenerProcessor.getDispatcher().receiveMessage(id, message);
+                Header header = message.getHeader();
+                
+                if (header.getFlag(Flags.QR) || header.getFlag(Flags.AA))
+                {
+                    if (matchesBrowse(message))
+                    {
+                        listenerProcessor.getDispatcher().receiveMessage(id, message);
+                    }
+                }
             }
         }
 

@@ -575,21 +575,24 @@ public class MulticastDNSCache extends Cache implements Closeable
         Name name = record.getName();
         int type = record.getType();
         ElementHelper element = findElementCopy(name, type, 0);
-        if (element != null && element.compareCredibility(cred) >= 0)
+        if (element != null)
         {
-            if (element.getElement() instanceof RRset)
+            if (element.compareCredibility(cred) <= 0)
             {
-                ((RRset) element.getElement()).addRR(record);
-                if (element.getTTL() == ttl)
+                if (element.getElement() instanceof RRset)
                 {
-                    element.resetExpire();
+                    ((RRset) element.getElement()).addRR(record);
+                    if (element.getTTL() == ttl)
+                    {
+                        element.resetExpire();
+                    } else
+                    {
+                        addRecord(record, cred, this);
+                    }
                 } else
                 {
                     addRecord(record, cred, this);
                 }
-            } else
-            {
-                addRecord(record, cred, this);
             }
         } else
         {
@@ -786,7 +789,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             while (!stack.isEmpty())
             {
                 Name name = (Name) stack.pop();
-                SetResponse response = lookupRecords(name, Type.ANY, Credibility.ANY);
+                SetResponse response = lookupRecords(name, Type.ANY, credibility);
                 if (response.isSuccessful())
                 {
                     header.setRcode(Rcode.NOERROR);

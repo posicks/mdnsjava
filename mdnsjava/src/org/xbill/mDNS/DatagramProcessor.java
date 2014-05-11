@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.net.InetSocketAddress;
 import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
@@ -21,10 +22,10 @@ public class DatagramProcessor extends NetworkProcessor
     protected DatagramSocket socket;
     
     
-    public DatagramProcessor(InetAddress address, int port, PacketListener listener)
+    public DatagramProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
-        super(address, port, listener);
+        super(ifaceAddress, address, port, listener);
         
         if (address != null)
         {
@@ -37,18 +38,21 @@ public class DatagramProcessor extends NetworkProcessor
             MulticastSocket socket = new MulticastSocket(port);
             
             // Set the IP TTL to 255, per the mDNS specification [RFC 6762].
-            socket.setLoopbackMode(false);
+            socket.setLoopbackMode(true);
             socket.setReuseAddress(true);
             socket.setTimeToLive(255);
             
+            socket.setInterface(ifaceAddress);
+            
             socket.joinGroup(address);
             
-            netIface = socket.getNetworkInterface();
             this.socket = socket;
         } else
         {
-            socket = new DatagramSocket(port);
+            socket = new DatagramSocket(new InetSocketAddress(ifaceAddress, port));
         }
+        
+        netIface = NetworkInterface.getByInetAddress(ifaceAddress);
         
         // Determine maximum mDNS Payload size
         if (netIface == null)
@@ -102,6 +106,7 @@ public class DatagramProcessor extends NetworkProcessor
     public void _send(byte[] data)
     throws IOException
     {
+System.err.println("-----> Sending Data <-----");
         if (exit)
         {
             return;
@@ -146,12 +151,13 @@ public class DatagramProcessor extends NetworkProcessor
             try
             {
                 socket.receive(datagram);
+System.err.println("-----> Receiving Data <-----");
                 final Packet packet = new Packet(datagram);
                 threadPool.execute(new Runnable()
                 {
                     public void run()
                     {
-                        listenerProcessor.getDispatcher().packetReceived(packet);
+                        listener.packetReceived(DatagramProcessor.this, packet);
                     }
                 });
             } catch (SecurityException e)
