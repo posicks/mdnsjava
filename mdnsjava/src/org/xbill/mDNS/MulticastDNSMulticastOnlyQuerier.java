@@ -100,64 +100,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
             
             updateCache(MulticastDNSUtils.extractRecords(message, sections), Credibility.NONAUTH_AUTHORITY);
-            /*
-            Record[] records = MulticastDNSUtils.extractRecords(message, sections);
-            if (records != null && records.length > 0)
-            {
-                for (int index = 0; index < records.length; index++)
-                {
-                    Record record = records[index];
-                    try
-                    {
-                        // Workaround. mDNS Uses high order DClass bit for Unicast Response OK
-                        Record cacheRecord = MulticastDNSUtils.clone(record);
-                        MulticastDNSUtils.setDClassForRecord(cacheRecord, cacheRecord.getDClass() & 0x7FFF);
-                        if (cacheRecord.getTTL() > 0)
-                        {
-                            SetResponse response = cache.lookupRecords(cacheRecord.getName(), cacheRecord.getType(), Credibility.ANY);
-                            RRset[] rrs = response.answers();
-                            if (rrs != null && rrs.length > 0)
-                            {
-                                Record[] cachedRecords = MulticastDNSUtils.extractRecords(rrs);
-                                if (cachedRecords != null && cachedRecords.length > 0)
-                                {
-                                    if (Options.check("mdns_verbose"))
-                                    {
-                                        System.out.println("Updating Record: " + cacheRecord);
-                                    }
-                                    cache.updateRRset(cacheRecord, credibility);
-                                }
-                            } else
-                            {
-                                if (Options.check("mdns_verbose"))
-                                {
-                                    System.out.println("Caching Record: " + cacheRecord);
-                                }
-                                cache.addRecord(cacheRecord, credibility, message);
-                            }
-                        } else
-                        {
-                            // Remove unregistered records from Cache
-                            RRset[] rrs = cache.findAnyRecords(cacheRecord.getName(), cacheRecord.getType());
-                            if (rrs != null && rrs.length > 0)
-                            {
-                                for (int i = 0; i < rrs.length; i++)
-                                {
-                                    cache.removeRRset(rrs[i]);
-                                }
-                            }
-                        }
-                    } catch (Exception e)
-                    {
-                        if (Options.check("mdns_verbose"))
-                        {
-                            System.err.println("Error caching record: " + record);
-                            e.printStackTrace(System.err);
-                        }
-                    }
-                }
-            }
-            */
         }
         
 
