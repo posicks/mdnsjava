@@ -20,8 +20,8 @@ public class Tester
         int weight = 10;
         int port = 8080;
         String ucn = "urn:smpte:ucn:org.smpte.st2071:device_v1.0";
-//        String ucnPTRName = "_org.smpte.st2071:device_v1.0._sub._mdc._tcp";
-        String ucnPTRName = "_mdc._tcp";
+        String ucnPTRName = "_org.smpte.st2071:device_v1.0._sub._mdc._tcp";
+//        String ucnPTRName = "_mdc._tcp";
         String domain = "local.";
         String hostname = "TestHost";
         

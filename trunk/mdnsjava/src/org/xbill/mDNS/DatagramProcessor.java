@@ -106,7 +106,6 @@ public class DatagramProcessor extends NetworkProcessor
     public void _send(byte[] data)
     throws IOException
     {
-System.err.println("-----> Sending Data <-----");
         if (exit)
         {
             return;
@@ -151,7 +150,6 @@ System.err.println("-----> Sending Data <-----");
             try
             {
                 socket.receive(datagram);
-System.err.println("-----> Receiving Data <-----");
                 final Packet packet = new Packet(datagram);
                 threadPool.execute(new Runnable()
                 {
