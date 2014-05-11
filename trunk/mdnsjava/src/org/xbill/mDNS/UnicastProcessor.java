@@ -43,10 +43,10 @@ public class UnicastProcessor extends NetworkProcessor
     protected Map readBuffers = new HashMap();
     
     
-    public UnicastProcessor(InetAddress address, int port, PacketListener listener)
+    public UnicastProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
-        super(address, port, listener);
+        super(ifaceAddress, address, port, listener);
         
         server = ServerSocketChannel.open();
         server.socket().setReuseAddress(true);

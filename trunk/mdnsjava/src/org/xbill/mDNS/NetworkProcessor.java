@@ -6,7 +6,6 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Arrays;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -16,7 +15,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     // Normally MTU size is 1500, but can be up to 9000 for jumbo frames.
     public static final int DEFAULT_MTU = 1500;
     
-    protected byte[][] sentPackets = new byte[10][];
+//    protected byte[][] sentPackets = new byte[10][];
     
     
     protected static class Packet
@@ -70,7 +69,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected static interface PacketListener
     {
-        void packetReceived(Packet packet);
+        void packetReceived(NetworkProcessor processor, Packet packet);
     }
     
     protected Executor threadPool = Executors.newCachedThreadPool(new ThreadFactory()
@@ -84,6 +83,8 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     });
     
     
+    protected InetAddress ifaceAddress;
+    
     protected InetAddress address;
     
     protected boolean ipv6;
@@ -94,20 +95,26 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected boolean exit = false;
     
-    protected ListenerProcessor<PacketListener> listenerProcessor = new ListenerProcessor<PacketListener>(PacketListener.class);
+    protected PacketListener listener;
+    
+//    protected ListenerProcessor<PacketListener> listenerProcessor = new ListenerProcessor<PacketListener>(PacketListener.class);
     
     
-    public NetworkProcessor(InetAddress address, int port, PacketListener listener)
+    public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
+    throws IOException
     {
+        setInterfaceAddress(ifaceAddress);
         setAddress(address);
         setPort(port);
         
+        if (ifaceAddress.getAddress().length != address.getAddress().length)
+        {
+            throw new IOException("Interface Address and bind address bust be the same IP specifciation!");
+        }
+        
         ipv6 = address.getAddress().length > 4;
         
-        if (listener != null)
-        {
-            registerListener(listener);
-        }
+        this.listener = listener;
     }
     
     
@@ -116,6 +123,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     {
 //        if (!remember)
 //        {
+/*
             synchronized (sentPackets)
             {
                 for (int index = 0; index < sentPackets.length - 1; index++)
@@ -124,6 +132,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                 }
                 sentPackets[0] = data;
             }
+*/
 //        }
         
         _send(data);
@@ -137,6 +146,18 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public int getMTU()
     {
         return mtu;
+    }
+
+
+    public void setInterfaceAddress(InetAddress address)
+    {
+        this.ifaceAddress = address;
+    }
+
+
+    public InetAddress getInterfaceAddress()
+    {
+        return ifaceAddress;
     }
 
 
@@ -175,19 +196,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         return !ipv6;
     }
     
-    
-    public PacketListener registerListener(PacketListener listener)
-    {
-        return listenerProcessor.registerListener(listener);
-    }
-    
-    
-    public PacketListener unregisterListener(PacketListener listener)
-    {
-        return listenerProcessor.unregisterListener(listener);
-    }
-    
-    
+    /*
     protected boolean isSentPacket(byte[] data)
     {
         if (data != null)
@@ -202,4 +211,5 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         }
         return false;
     }
+    */
 }

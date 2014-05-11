@@ -151,7 +151,7 @@ public class dnssd
                             {
                                 browseDomains = new Name[] {new Name(args[2] + (args[2].endsWith(".") ? "" : "."))};
                             }
-                            System.out.println("\nSearching for Browse Domains - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("Searching for Browse Domains - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
                             
                             serviceTypes = new Name[browseDomains.length];
                             for (int i = 0; i < browseDomains.length; i++)
@@ -163,7 +163,7 @@ public class dnssd
                             System.out.println();
                             System.out.println("Services Found:");
                             ExecutionTimer.start();
-                            ExecutionTimer.start();
+//                            ExecutionTimer.start();
                             MulticastDNSService mDNSService = new MulticastDNSService();
                             Object id = mDNSService.startServiceDiscovery(new Browse(serviceTypes), new DNSSDListener()
                             {
