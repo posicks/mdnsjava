@@ -579,10 +579,8 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     
     protected static ServiceInstance[] extractServiceInstances(Message... messages)
-    throws TextParseException
     {
         Map services = new HashMap();
-        Map servicesByHost = new HashMap();
         Record[] records = null;
         
         for (Message message : messages)
@@ -600,15 +598,21 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
             }
         }
         
+        ServiceInstance service = null;
         Arrays.sort(records, SERVICE_RECORD_SORTER);
         for (Record record : records)
         {
             switch (record.getType())
             {
                 case Type.SRV :
-                    ServiceInstance service = new ServiceInstance((SRVRecord) record);
-                    services.put(service.getName(), service);
-                    servicesByHost.put(service.getHost(), service);
+                    try
+                    {
+                        service = new ServiceInstance((SRVRecord) record);
+                        services.put(service.getName(), service);
+                    } catch (TextParseException e)
+                    {
+                        System.err.println("Error processing SRV record \"" + record.getName() + "\" - " + e.getMessage());
+                    }
                     break;
                 case Type.PTR :
                     PTRRecord ptr = (PTRRecord) record;
@@ -617,10 +621,10 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                     {
                         if (ptr.getTTL() > 0)
                         {
-                            service.removePointer(ptr.getName());
+                            service.addPointer(ptr.getName());
                         } else
                         {
-                            service.addPointer(ptr.getName());
+                            service.removePointer(ptr.getName());
                         }
                     }
                     break;
@@ -640,33 +644,40 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                     break;
                 case Type.A :
                     ARecord a = (ARecord) record;
-                    service = (ServiceInstance) servicesByHost.get(a.getName());
-                    if (service != null)
+                    for (Object o : services.values())
                     {
-                        if (a.getTTL() > 0)
+                        service = (ServiceInstance) o;
+                        if (a.getName().equals(service.getHost()))
                         {
-                            service.addAddress(a.getAddress());
-                        } else
-                        {
-                            service.removeAddress(a.getAddress());
+                            if (a.getTTL() > 0)
+                            {
+                                service.addAddress(a.getAddress());
+                            } else
+                            {
+                                service.removeAddress(a.getAddress());
+                            }
                         }
                     }
                     break;
                 case Type.AAAA :
                     AAAARecord aaaa = (AAAARecord) record;
-                    service = (ServiceInstance) servicesByHost.get(aaaa.getName());
-                    if (service != null)
+                    for (Object o : services.values())
                     {
-                        if (aaaa.getTTL() > 0)
+                        service = (ServiceInstance) o;
+                        if (aaaa.getName().equals(service.getHost()))
                         {
-                            service.addAddress(aaaa.getAddress());
-                        } else
-                        {
-                            service.removeAddress(aaaa.getAddress());
+                            if (aaaa.getTTL() > 0)
+                            {
+                                service.addAddress(aaaa.getAddress());
+                            } else
+                            {
+                                service.removeAddress(aaaa.getAddress());
+                            }
                         }
                     }
                     break;
             }
+            service = null;
         }
         
         return (ServiceInstance[]) services.values().toArray(new ServiceInstance[services.size()]);

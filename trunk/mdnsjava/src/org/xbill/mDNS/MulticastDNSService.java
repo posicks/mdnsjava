@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -138,7 +139,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
              */
             final List replies = new ArrayList();
             Message query = Message.newQuery(Record.newRecord(service.getName(), Type.ANY, DClass.IN));
-            query.addRecord(new SRVRecord(service.getName(), DClass.IN, 3600, 0, 0, service.getPort(), service.getHost()), Section.AUTHORITY);
+            SRVRecord srvRecord = new SRVRecord(service.getName(), DClass.IN, 3600, 0, 0, service.getPort(), service.getHost());
+            query.addRecord(srvRecord, Section.AUTHORITY);
             // TODO: Add support for Unicast answers for first query mDNS.createQuery(DClass.IN + 0x8000, Type.ANY, service.getName());
             
             int tries = 0;
@@ -203,8 +205,11 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                     {
                                         if (records[r].getType() == Type.SRV && records[r].getTTL() > 0)
                                         {
-                                            // Service with this same name found, so registration must fail.
-                                            return null;
+                                            if (!srvRecord.equals(records[r]))
+                                            {
+                                                // Another Service with this same name was found, so registration must fail.
+                                                return null;
+                                            }
                                         }
                                     }
                                 }
@@ -216,14 +221,16 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             
             replies.clear();
             
+            ServiceName serviceName = service.getName();
             try
             {
                 // Name Not Found, Register New Service
                 Name domain = new Name(service.getName().getDomain());
                 final Update[] updates = new Update[] {new Update(domain), new Update(domain)};
                 
-                Name fullTypeName = new Name(service.getName().getFullType() + "." + domain);
-                Name typeName = new Name(service.getName().getType() + "." + domain);
+                Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
+                Name typeName = new Name(serviceName.getType() + "." + domain);
+                ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
                 
                 ArrayList<Record> records = new ArrayList<Record>();
                 ArrayList<Record> additionalRecords = new ArrayList<Record>();
@@ -248,11 +255,11 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 }
                 
                 /* Old
-                PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
-                PTRRecord ptrFullName = new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, service.getName());
-                SRVRecord srv = new SRVRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
-                TXTRecord txt = new TXTRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
-                NSECRecord serviceNSEC = new NSECRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, service.getName(), new int[]{Type.TXT, Type.SRV});
+                PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
+                PTRRecord ptrFullName = new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
+                SRVRecord srv = new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
+                TXTRecord txt = new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
+                NSECRecord serviceNSEC = new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV});
                 NSECRecord addressNSEC = new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA});
               
                 update.add(txt);
@@ -267,16 +274,24 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 */
                 
                 // Add Service and Pointer Records
-                records.add(new SRVRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
-                records.add(new TXTRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, service.getName()));
+                records.add(new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
+                records.add(new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
+                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
                 if (!fullTypeName.equals(typeName))
                 {
-                    records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, service.getName()));
+                    records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
+                    // For compatibility with legacy clients, register the NON sub-protocol service as well.
+                    if (shortSRVName != null && !shortSRVName.equals(serviceName))
+                    {
+                        records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
+                        records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
+                        records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
+                        additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
+                    }
                 }
                 
                 // Add Security (NSEC) records
-                additionalRecords.add(new NSECRecord(service.getName(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, service.getName(), new int[]{Type.TXT, Type.SRV}));
+                additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV}));
                 additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA}));
                 
                 
@@ -373,7 +388,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
 
-                Lookup lookup = new Lookup(new Name[]{service.getName()}, Type.ANY);
+                Lookup lookup = new Lookup(new Name[]{serviceName}, Type.ANY);
                 try
                 {
                     instances = lookup.lookupServices();
@@ -384,7 +399,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         {
                             if (Options.check("mdns_verbose"))
                             {
-                                System.err.println("Warning: Somehow more than one service with the name \"" + service.getName() + "\" was registered.");
+                                System.err.println("Warning: Somehow more than one service with the name \"" + serviceName + "\" was registered.");
                             }
                         }
                         
@@ -448,6 +463,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             String domain = serviceName.getDomain();
             Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
             Name typeName = new Name(serviceName.getType() + "." + domain);
+            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            
             ArrayList<Record> records = new ArrayList<Record>();
             ArrayList<Record> additionalRecords = new ArrayList<Record>();
             
@@ -455,6 +472,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             if (!fullTypeName.equals(typeName))
             {
                 records.add(new PTRRecord(fullTypeName, DClass.IN, 0, serviceName));
+                records.add(new PTRRecord(typeName, DClass.IN, 0, shortSRVName));
             }
             
             Update update = new Update(new Name(domain));
@@ -528,7 +546,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         
         private ListenerProcessor<DNSSDListener> listenerProcessor = new ListenerProcessor<DNSSDListener>(DNSSDListener.class);
         
-        private Map services = new HashMap();
+        private Map services = new LinkedHashMap();
         
         
         ServiceDiscoveryOperation(Browse browser)
@@ -614,15 +632,23 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             return listenerProcessor.unregisterListener(listener);
         }
         
-
+        /* TODO: Refactor and account for Truncated messages as per RFC
+         *  1. If message is truncated, store the message and wait 400 to 600 milliseconds for more inbound truncated messages.
+         *  2. Use all truncated messages stored over the 400 to 600 milliseconds to perform service discovery from cache.
+         *  3. Make 4 lists, PTRs, SRVs, TXTs, A & AAAAs.
+         *  4. process PTR list and compare to SRV & TXT list.
+         *  5. Get A & AAAA records from list for each service found. 
+         */
         public void receiveMessage(Object id, Message message)
         {
             if (matchesBrowse(message))
             {
                 listenerProcessor.getDispatcher().receiveMessage(id, message);
                 
-                Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+                Map<Name, ServiceInstance> foundServices = new HashMap<Name, ServiceInstance>();
+                Map<Name, ServiceInstance> removedServices = new HashMap<Name, ServiceInstance>();
                 
+                Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
                 for (int index = 0; index < records.length; index++)
                 {
                     try
@@ -631,30 +657,34 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         
                         switch (records[index].getType())
                         {
+                            /*
                             case Type.SRV :
                                 SRVRecord srv = (SRVRecord) records[index];
                                 if (srv.getTTL() > 0)
                                 {
-                                    if (!services.containsKey(srv.getName()))
+                                    synchronized (services)
                                     {
-                                        service = new ServiceInstance(srv);
                                         if (!services.containsKey(srv.getName()))
                                         {
                                             service = new ServiceInstance(srv);
                                             services.put(srv.getName(), service);
-                                            listenerProcessor.getDispatcher().serviceDiscovered(id, service);
+                                            foundServices.put(srv.getName(), service);
                                         }
                                     }
                                 } else
                                 {
-                                    service = (ServiceInstance) services.get(srv.getName());
-                                    if (service != null)
+                                    synchronized (services)
                                     {
-                                        services.remove(service.getName());
-                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                                        service = (ServiceInstance) services.get(srv.getName());
+                                        if (service != null)
+                                        {
+                                            services.remove(srv.getName());
+                                            removedServices.put(srv.getName(), service);
+                                        }
                                     }
                                 }
                                 break;
+                            */
                             case Type.PTR :
                                 PTRRecord ptr = (PTRRecord) records[index];
                                 
@@ -663,22 +693,28 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                     ServiceInstance[] instances = extractServiceInstances(querier.send(Message.newQuery(Record.newRecord(ptr.getTarget(), Type.ANY, dclass))));
                                     if (instances.length > 0)
                                     {
-                                        for (int i = 0; i < instances.length; i++)
+                                        synchronized (services)
                                         {
-                                            if (!services.containsKey(instances[i].getName()))
+                                            for (int i = 0; i < instances.length; i++)
                                             {
-                                                services.put(instances[i].getName(), instances[i]);
-                                                listenerProcessor.getDispatcher().serviceDiscovered(id, instances[i]);
+                                                if (!services.containsKey(instances[i].getName()))
+                                                {
+                                                    services.put(instances[i].getName(), instances[i]);
+                                                    foundServices.put(instances[i].getName(), instances[i]);
+                                                }
                                             }
                                         }
                                     }
                                 } else
                                 {
-                                    service = (ServiceInstance) services.get(ptr.getTarget());
-                                    if (service != null)
+                                    synchronized (services)
                                     {
-                                        services.remove(service.getName());
-                                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                                        service = (ServiceInstance) services.get(ptr.getTarget());
+                                        if (service != null)
+                                        {
+                                            services.remove(service.getName());
+                                            removedServices.put(service.getName(), service);
+                                        }
                                     }
                                 }
                                 break;
@@ -691,6 +727,16 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                             e.printStackTrace(System.err);
                         }
                     }
+                }
+                
+                for (ServiceInstance service : foundServices.values())
+                {
+                    listenerProcessor.getDispatcher().serviceDiscovered(id, service);
+                }
+                
+                for (ServiceInstance service : removedServices.values())
+                {
+                    listenerProcessor.getDispatcher().serviceRemoved(id, service);
                 }
             }
         }
