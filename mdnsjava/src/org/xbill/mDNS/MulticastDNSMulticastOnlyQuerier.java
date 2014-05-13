@@ -275,7 +275,9 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     {
         public Thread newThread(Runnable r)
         {
-            return new Thread(r, "mDNSResolver Pool Thread");
+            Thread t = new Thread(r, "mDNSResolver Pool Thread");
+            t.setDaemon(true);
+            return t;
         }
     });
     
@@ -283,7 +285,9 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     {
         public Thread newThread(Runnable r)
         {
-            return new Thread(r, "mDNSResolver Scheduled Thread");
+            Thread t = new Thread(r, "mDNSResolver Scheduled Thread");
+            t.setDaemon(true);
+            return t;
         }
     });
     

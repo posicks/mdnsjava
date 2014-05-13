@@ -8,8 +8,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -632,61 +635,75 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             return listenerProcessor.unregisterListener(listener);
         }
         
-        /* TODO: Refactor and account for Truncated messages as per RFC
-         *  1. If message is truncated, store the message and wait 400 to 600 milliseconds for more inbound truncated messages.
-         *  2. Use all truncated messages stored over the 400 to 600 milliseconds to perform service discovery from cache.
-         *  3. Make 4 lists, PTRs, SRVs, TXTs, A & AAAAs.
-         *  4. process PTR list and compare to SRV & TXT list.
-         *  5. Get A & AAAA records from list for each service found. 
-         */
+        
         public void receiveMessage(Object id, Message message)
         {
-            if (matchesBrowse(message))
+            if (message == null)
+            {
+                return;
+            }
+            
+            // Strip the records that are not related to the query.
+            Set<Name> additionalNames = new LinkedHashSet<Name>();
+            List<Record> ignoredRecords = new LinkedList<Record>();
+            List<Record> filteredRecords = new LinkedList<Record>();
+            Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+            for (Record record : thatAnswers)
+            {
+                if (answersQuery(record))
+                {
+                    Name additionalName = record.getAdditionalName();
+                    if (additionalName != null)
+                    {
+                        additionalNames.add(additionalName);
+                    }
+                    
+                    switch(record.getType())
+                    {
+                        case Type.PTR:
+                            PTRRecord ptr = (PTRRecord) record;
+                            additionalNames.add(ptr.getTarget());
+                            break;
+                        case Type.SRV:
+                            SRVRecord srv = (SRVRecord) record;
+                            additionalNames.add(srv.getTarget());
+                            break;
+                        default:
+                            // ignore
+                            break;
+                    }
+                    filteredRecords.add(record);
+                } else
+                {
+                    ignoredRecords.add(record);
+                }
+            }
+            
+            for (Record record : ignoredRecords)
+            {
+                if (additionalNames.contains(record.getName()))
+                {
+                    filteredRecords.add(record);
+                }
+            }
+            
+            if (filteredRecords.size() > 0)
             {
                 listenerProcessor.getDispatcher().receiveMessage(id, message);
                 
                 Map<Name, ServiceInstance> foundServices = new HashMap<Name, ServiceInstance>();
                 Map<Name, ServiceInstance> removedServices = new HashMap<Name, ServiceInstance>();
                 
-                Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
-                for (int index = 0; index < records.length; index++)
+                for (Record record : filteredRecords)
                 {
                     try
                     {
                         ServiceInstance service = null;
                         
-                        switch (records[index].getType())
+                        switch (record.getType())
                         {
-                            /*
-                            case Type.SRV :
-                                SRVRecord srv = (SRVRecord) records[index];
-                                if (srv.getTTL() > 0)
-                                {
-                                    synchronized (services)
-                                    {
-                                        if (!services.containsKey(srv.getName()))
-                                        {
-                                            service = new ServiceInstance(srv);
-                                            services.put(srv.getName(), service);
-                                            foundServices.put(srv.getName(), service);
-                                        }
-                                    }
-                                } else
-                                {
-                                    synchronized (services)
-                                    {
-                                        service = (ServiceInstance) services.get(srv.getName());
-                                        if (service != null)
-                                        {
-                                            services.remove(srv.getName());
-                                            removedServices.put(srv.getName(), service);
-                                        }
-                                    }
-                                }
-                                break;
-                            */
                             case Type.PTR :
-                                PTRRecord ptr = (PTRRecord) records[index];
+                                PTRRecord ptr = (PTRRecord) record;
                                 
                                 if (ptr.getTTL() > 0)
                                 {
@@ -826,7 +843,9 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             {
                 public Thread newThread(Runnable r)
                 {
-                    return new Thread(r, "Service Discover Browser Thread");
+                    Thread t = new Thread(r, "Service Discover Browser Thread");
+                    t.setDaemon(true);
+                    return t;
                 }
             });
         }
