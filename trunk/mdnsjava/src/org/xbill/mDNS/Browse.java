@@ -299,7 +299,9 @@ public class Browse extends MulticastDNSLookupBase
                 {
                     public Thread newThread(Runnable r)
                     {
-                        return new Thread(r, "mDNSResolver Scheduled Thread");
+                        Thread t = new Thread(r, "mDNSResolver Scheduled Thread");
+                        t.setDaemon(true);
+                        return t;
                     }
                 });
                 selfCreatedScheduler = true;
