@@ -4,6 +4,7 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.net.NetworkInterface;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
@@ -73,7 +74,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 return;
             }
 
-            int[] sections = null;
             switch (opcode)
             {
                 case Opcode.IQUERY :
@@ -82,7 +82,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 case Opcode.STATUS :
                     if (header.getFlag(Flags.QR) || header.getFlag(Flags.AA))
                     {
-                        sections = new int[] {Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL};
+                        updateCache(MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL), Credibility.NONAUTH_AUTHORITY);
                     } else
                     {
                         return;
@@ -90,6 +90,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     break;
                 case Opcode.UPDATE :
                     // We do not allow updates from the network!
+                    System.err.println("-----> We do not allow updates from the network! <-----");
                     return;
             }
             
@@ -98,8 +99,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 System.out.println("RCode: " + Rcode.string(rcode));
                 System.out.println("Opcode: " + Opcode.string(opcode));
             }
-            
-            updateCache(MulticastDNSUtils.extractRecords(message, sections), Credibility.NONAUTH_AUTHORITY);
         }
         
 
@@ -157,7 +156,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 {
                     case Opcode.IQUERY :
                     case Opcode.QUERY :
-                        Message response = cache.queryCache(message, Credibility.AUTH_ANSWER);
+                        Message response = cache.queryCache(message, Credibility.AUTH_AUTHORITY);
                         
                         if (response != null)
                         {
@@ -337,7 +336,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         public void begin()
         {
-            if (Options.check("mdns_verbose"))
+// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.print("!!!! ");
                 if (lastPoll > 0)
@@ -355,7 +354,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         public void check(RRset rrs, int credibility, int expiresIn)
         {
-            if (Options.check("mdns_verbose"))
+// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.println("CacheMonitor check RRset: expires in: " + expiresIn + " seconds : " + rrs);
             }
@@ -385,27 +384,33 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         }
         
         
-        public void expired(RRset rrs)
+        public void expired(RRset rrs, int credibility)
         {
-            if (Options.check("mdns_verbose"))
+// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.println("CacheMonitor RRset expired : " + rrs);
             }
-            Record[] records = MulticastDNSUtils.extractRecords(rrs);
-            if (records != null && records.length > 0)
+            if (credibility >= Credibility.AUTH_AUTHORITY)
             {
-                for (int i = 0; i < records.length; i++)
+                Record[] records = MulticastDNSUtils.extractRecords(rrs);
+                if (records != null && records.length > 0)
                 {
-                    try
+                    for (int i = 0; i < records.length; i++)
                     {
-                        MulticastDNSUtils.setTLLForRecord(records[i], 0);
-                        this.records.add(records[i]);
-                    } catch (Exception e)
-                    {
-                        System.err.println(e.getMessage());
-                        e.printStackTrace(System.err);
+                        try
+                        {
+                            MulticastDNSUtils.setTLLForRecord(records[i], 0);
+                            this.records.add(records[i]);
+                        } catch (Exception e)
+                        {
+                            System.err.println(e.getMessage());
+                            e.printStackTrace(System.err);
+                        }
                     }
                 }
+            } else
+            {
+                // TODO: Notify local clients, not Network!
             }
         }
         
@@ -424,6 +429,10 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         m.addRecord((Record) records.get(index), Section.UPDATE);
                     }
 
+// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+                    {
+                        System.out.println("CacheMonitor Broadcasting update for Authoritative Records:\n" + m);
+                    }
                     broadcast(m, false);
                 }
             } catch (IOException e)
@@ -960,7 +969,8 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 resolverListenerDispatcher.receiveMessage(message.getHeader().getID(), message);
             } catch (IOException e)
             {
-                System.err.println("Error parsing mDNS Response - " + e.getMessage());
+                System.err.println("Error parsing mDNS Packet - " + e.getMessage());
+                System.err.println("Packet Data [" + Arrays.toString(data) + "]");
                 e.printStackTrace(System.err);
             }
         }

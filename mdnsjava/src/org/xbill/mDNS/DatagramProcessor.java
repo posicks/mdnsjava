@@ -143,21 +143,23 @@ public class DatagramProcessor extends NetworkProcessor
     
     public void run()
     {
-        byte[] buffer = new byte[this.mtu];
-        DatagramPacket datagram = new DatagramPacket(buffer, buffer.length);
         while (!exit)
         {
             try
             {
+                byte[] buffer = new byte[this.mtu];
+                final DatagramPacket datagram = new DatagramPacket(buffer, buffer.length);
                 socket.receive(datagram);
-                final Packet packet = new Packet(datagram);
-                threadPool.execute(new Runnable()
+                if (queue.offer(new Packet(datagram)))
                 {
-                    public void run()
+                    synchronized (queue)
                     {
-                        listener.packetReceived(DatagramProcessor.this, packet);
+                        queue.notifyAll();
                     }
-                });
+                } else
+                {
+                    System.err.println("Could NOT place data into the Packet Queue!");
+                }
             } catch (SecurityException e)
             {
                 if (Options.check("mdns_verbose"))
