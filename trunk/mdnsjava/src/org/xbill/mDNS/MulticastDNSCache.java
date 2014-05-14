@@ -185,8 +185,9 @@ public class MulticastDNSCache extends Cache implements Closeable
          * Called for RRsets that have expired.
          * 
          * @param rrs The expired RRset
+         * @param credibility The credibility of the RRset
          */
-        public void expired(RRset rrs);
+        public void expired(RRset rrs, int credibility);
         
         
         /**
@@ -318,7 +319,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                         Record[] records = MulticastDNSUtils.extractRecords(rrs);
                         for (Record record : records)
                         {
-                            if (element.getCredibility() >= Credibility.AUTH_ANSWER)
+                            if (element.getCredibility() >= Credibility.AUTH_AUTHORITY)
                             {
                                 MulticastDNSUtils.setTLLForRecord(record, 0);
                             }
@@ -328,7 +329,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                     int expiresIn = element.getExpiresIn();
                     if (expiresIn <= 0 || rrs.getTTL() <= 0)
                     {
-                        cacheMonitor.expired(rrs);
+                        cacheMonitor.expired(rrs, element.getCredibility());
                     } else
                     {
                         cacheMonitor.check(rrs, element.getCredibility(), expiresIn);
@@ -559,6 +560,20 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
+    @Override
+    public synchronized void addRecord(Record r, int cred, Object o)
+    {
+        super.addRecord(r, cred, o);
+    }
+
+
+    @Override
+    public synchronized void addRRset(RRset rrset, int cred)
+    {
+        super.addRRset(rrset, cred);
+    }
+
+
     /**
      * Updates an RRset in the Cache. Typically used to update expirey.
      * 
@@ -828,7 +843,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                     message.addRecord(question, Section.QUESTION);
                     
                     MulticastDNSUtils.setDClassForRecord(question, question.getDClass() & 0x7FFF);
-                    SetResponse response = lookupRecords(question.getName(), Type.ANY, Credibility.ANY);
+                    SetResponse response = lookupRecords(question.getName(), Type.ANY, credibility);
                     if (response.isSuccessful())
                     {
                         header.setRcode(Rcode.NOERROR);

@@ -35,8 +35,7 @@ public class ListenerProcessor<T> implements Closeable
         public Object invoke(Object proxy, Method method, Object[] args)
         throws Throwable
         {
-            Object[] tempListeners = processor.listeners;
-        
+            Object[] tempListeners = Arrays.copyOf(processor.listeners, processor.listeners.length);
             for (Object listener : tempListeners)
             {
                 try
