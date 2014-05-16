@@ -81,12 +81,12 @@ public class dnssd
                     Name[] serviceTypes;
                     Domain[] domains = null;
                     char option = temp.charAt(temp.length() - 1);
-                    ExecutionTimer.start();
+                    ExecutionTimer._start();
                     switch (option)
                     {
                         case 'E':
                             // Enumerate recommended registration domains
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             Lookup lookup = new Lookup(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, MulticastDNSService.REGISTRATION_DOMAIN_NAME);
                             try
                             {
@@ -97,11 +97,11 @@ public class dnssd
                             }
                             System.out.println("Registration Domains:");
                             printArray(domains, "\t%s\n");
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'F':
                             // Enumerate recommended browse domains
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
                             try
                             {
@@ -112,7 +112,7 @@ public class dnssd
                             }
                             System.out.println("Browse Domains:");
                             printArray(domains, "\t%s\n");
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'B':
                             // Browse for service instances
@@ -121,7 +121,7 @@ public class dnssd
                                 throw new IllegalArgumentException("Too few arguments for -B option");
                             }
                             
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             if (args.length == 2)
                             {
                                 domainNames = new ArrayList();
@@ -151,7 +151,7 @@ public class dnssd
                             {
                                 browseDomains = new Name[] {new Name(args[2] + (args[2].endsWith(".") ? "" : "."))};
                             }
-                            System.out.println("Searching for Browse Domains - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("Searching for Browse Domains - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             
                             serviceTypes = new Name[browseDomains.length];
                             for (int i = 0; i < browseDomains.length; i++)
@@ -162,7 +162,7 @@ public class dnssd
                             printArray(serviceTypes, "\t%s\n");
                             System.out.println();
                             System.out.println("Services Found:");
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
 //                            ExecutionTimer.start();
                             MulticastDNSService mDNSService = new MulticastDNSService();
                             Object id = mDNSService.startServiceDiscovery(new Browse(serviceTypes), new DNSSDListener()
@@ -193,7 +193,7 @@ public class dnssd
                                     }
                                 }
                             });
-                            System.out.println("\nStarting Browse for " + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\nStarting Browse for " + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             while (true)
                             {
                                 Thread.sleep(10);
@@ -204,7 +204,7 @@ public class dnssd
                             }
                             mDNSService.stopServiceDiscovery(id);
                             mDNSService.close();
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'L':
                             // Lookup a service
@@ -213,7 +213,7 @@ public class dnssd
                                 throw new IllegalArgumentException("Too few arguments for -L option");
                             }
                             
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             if (args.length == 3)
                             {
                                 domainNames = new ArrayList();
@@ -243,14 +243,14 @@ public class dnssd
                             {
                                 browseDomains = new Name[] {new Name(args[3] + (args[3].endsWith(".") ? "" : "."))};
                             }
-                            System.out.println("\nSearching for Browse Domains - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\nSearching for Browse Domains - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             
                             serviceTypes = new Name[browseDomains.length];
                             for (int i = 0; i < browseDomains.length; i++)
                             {
                                 serviceTypes[i] = new Name(args[1] + "." + args[2], browseDomains[i]);
                             }
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             System.out.println("Lookup Service :");
                             printArray(serviceTypes, "\t%s\n");
                             System.out.println();
@@ -263,7 +263,7 @@ public class dnssd
                             {
                                 lookup.close();
                             }
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'R':
                             // Register a Service
@@ -306,7 +306,7 @@ public class dnssd
                             {
                                 addresses = MulticastDNSUtils.getLocalAddresses();
                             }
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             mDNSService = new MulticastDNSService();
                             ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname/*, MulticastDNSService.DEFAULT_SRV_TTL*/, addresses, txtValues);
                             ServiceInstance registeredService = mDNSService.register(service);
@@ -333,7 +333,7 @@ public class dnssd
                                 }
                             }
                             mDNSService.close();
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'Q':
                             // TODO: Fix Query Results!  Add Additional "Known" Records.  Why doesn't the SRV record return after expirey?
@@ -351,7 +351,7 @@ public class dnssd
                             {
                                 throw new IllegalArgumentException("Invalid DClass \"" + args[3] + "\" specified.");
                             }
-                            ExecutionTimer.start();
+                            ExecutionTimer._start();
                             lookup = new Lookup(new Name[]{new Name(args[1])}, type, dclass);
                             try
                             {
@@ -364,7 +364,7 @@ public class dnssd
                             {
                                 lookup.close();
                             }
-                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+                            System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'C':
                             break;
@@ -384,7 +384,7 @@ public class dnssd
             printHelp(e.getMessage());
         } finally
         {
-            System.out.println("\nTotal " + timingBuilder.toString() + " - took " + ExecutionTimer.took(TimeUnit.SECONDS) + " seconds.");
+            System.out.println("\nTotal " + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
         }
         
         System.exit(0);
