@@ -277,6 +277,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 */
                 
                 // Add Service and Pointer Records
+                /* Original Working code!
                 records.add(new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
                 records.add(new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
                 records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
@@ -292,11 +293,20 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
                     }
                 }
+                */
+                if (!fullTypeName.equals(typeName))
+                {
+                    records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
+                }
+                // For compatibility with legacy clients, register the NON sub-protocol service name.
+                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
+                records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
+                records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
+                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
                 
                 // Add Security (NSEC) records
                 additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV}));
                 additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA}));
-                
                 
                 for (Record record : records)
                 {
