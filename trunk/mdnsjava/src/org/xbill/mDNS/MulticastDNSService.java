@@ -225,15 +225,14 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             replies.clear();
             
             ServiceName serviceName = service.getName();
+            Name domain = new Name(serviceName.getDomain());
+            final Update[] updates = new Update[] {new Update(domain), new Update(domain)};
+            Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
+            Name typeName = new Name(serviceName.getType() + "." + domain);
+            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            
             try
             {
-                // Name Not Found, Register New Service
-                Name domain = new Name(service.getName().getDomain());
-                final Update[] updates = new Update[] {new Update(domain), new Update(domain)};
-                
-                Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
-                Name typeName = new Name(serviceName.getType() + "." + domain);
-                ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
                 
                 ArrayList<Record> records = new ArrayList<Record>();
                 ArrayList<Record> additionalRecords = new ArrayList<Record>();
@@ -305,7 +304,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
                 
                 // Add Security (NSEC) records
-                additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV}));
+// Original                additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV}));
+                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
                 additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA}));
                 
                 for (Record record : records)
@@ -401,7 +401,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
 
-                Lookup lookup = new Lookup(new Name[]{serviceName}, Type.ANY);
+// Origonal                Lookup lookup = new Lookup(new Name[]{serviceName}, Type.ANY);
+                Lookup lookup = new Lookup(new Name[]{shortSRVName}, Type.ANY);
                 try
                 {
                     instances = lookup.lookupServices();
@@ -412,7 +413,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         {
                             if (Options.check("mdns_verbose"))
                             {
-                                System.err.println("Warning: Somehow more than one service with the name \"" + serviceName + "\" was registered.");
+                                System.err.println("Warning: Somehow more than one service with the name \"" + shortSRVName + "\" was registered.");
                             }
                         }
                         
