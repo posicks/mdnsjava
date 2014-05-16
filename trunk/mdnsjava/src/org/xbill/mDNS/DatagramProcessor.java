@@ -151,7 +151,7 @@ public class DatagramProcessor extends NetworkProcessor
                 final DatagramPacket datagram = new DatagramPacket(buffer, buffer.length);
                 socket.receive(datagram);
                 Packet packet = new Packet(datagram);
-                if (Options.check("mdns_verbose"))
+                if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
                 {
                     System.err.println("Received packet " + packet.id);
                     packet.timer.start();
