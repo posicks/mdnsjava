@@ -112,7 +112,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         public void run()
         {
-            if (Options.check("mdns_verbose"))
+            if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
             {
                 System.err.println("Running " + packets.length + " on a single thread");
             }
@@ -120,11 +120,17 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             {
                 try
                 {
-                    if (Options.check("mdns_verbose"))
+                    boolean log = Options.check("mdns_verbose") || Options.check("mdns_packet_verbose");
+                    if (log)
                     {
                         System.err.println("Processing packet " + packet.id + " took " + packet.timer.took(TimeUnit.MILLISECONDS));
+                        ExecutionTimer._start();
                     }
                     networkProcessor.listener.packetReceived(networkProcessor, packet);
+                    if (log)
+                    {
+                        System.err.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " to be processed by mDNS Querier.");
+                    }
                 } catch (Throwable e)
                 {
                     System.err.println("Error dispatching data packet - " + e.getMessage());
@@ -170,7 +176,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         }
 
 
-        public boolean execute()
+        public synchronized boolean execute()
         {
             int size = packets.size();
             if (size > 0)
@@ -185,8 +191,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected static class QueueRunner implements Runnable
     {
-        private static final int MAX_CONCURRENT_PACKETS_PROCESSORS = 5;
-        
         private NetworkProcessor networkProcessor;
         
         private Executor executor;
@@ -204,57 +208,37 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         public void run()
         {
-            PacketProcessor[] packetProcessors = new PacketProcessor[MAX_CONCURRENT_PACKETS_PROCESSORS];
+            PacketProcessor packetProcessor = new PacketProcessor(networkProcessor, executor);
             Packet packet = null;
-            
-            for (int index = 0; index < packetProcessors.length; index++)
-            {
-                packetProcessors[index] = new PacketProcessor(networkProcessor, executor);
-            }
-            
             while (!networkProcessor.exit)
             {
                 try
                 {
-                    int count = 0;
                     // Reduce number of processing threads to a minimum
                     long waitTill = System.currentTimeMillis() + 10;
                     while ((packet = queue.poll()) != null)
                     {
-                        if (Options.check("mdns_verbose"))
+                        if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
                         {
                             System.err.println("Popped packet " + packet.id + " from queue.");
                         }
-                        int index = (count + 1) % packetProcessors.length;
-                        packetProcessors[index].submitPacket(packet);
+                        packetProcessor.submitPacket(packet);
                         
                         long now;
                         // Wait a short period for more packets.
                         if (queue.peek() == null && (waitTill - (now = System.currentTimeMillis())) > 0)
                         {
-                                try
-                                {
-                                    Thread.sleep(waitTill - now);
-                                } catch (InterruptedException e)
-                                {
-                                    // ignore
-                                }
-                        }
-                    }
-                    
-                    for (PacketProcessor packetProcessor : packetProcessors)
-                    {
-                        if (packetProcessor != null)
-                        {
-                            if (packetProcessor.execute())
+                            try
                             {
-                                if (Options.check("mdns_verbose"))
-                                {
-                                    System.out.println("Packets Processed");
-                                }
+                                Thread.sleep(waitTill - now);
+                            } catch (InterruptedException e)
+                            {
+                                // ignore
                             }
                         }
                     }
+                    
+                    packetProcessor.execute();
                     
                     synchronized (queue)
                     {
@@ -298,6 +282,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
+//Options.set("mdns_packet_verbose");
         setInterfaceAddress(ifaceAddress);
         setAddress(address);
         setPort(port);
