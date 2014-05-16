@@ -7,16 +7,23 @@ import java.util.concurrent.TimeUnit;
 @SuppressWarnings({"rawtypes","unchecked"})
 public class ExecutionTimer
 {
-    private static Stack stack = new Stack();
+    private static ExecutionTimer timer = new ExecutionTimer();
+    
+    private Stack stack = new Stack();
     
     
-    public static long start()
+    public ExecutionTimer()
+    {
+    }
+    
+    
+    public long start()
     {
         return ((Long) stack.push(new Long(System.nanoTime()))).longValue();
     }
     
     
-    public static double took(TimeUnit unit)
+    public double took(TimeUnit unit)
     {
         try
         {
@@ -52,5 +59,17 @@ public class ExecutionTimer
         }
         
         return 0;
+    }
+    
+    
+    public static long _start()
+    {
+        return timer.start();
+    }
+    
+    
+    public static double _took(TimeUnit unit)
+    {
+        return timer.took(unit);
     }
 }

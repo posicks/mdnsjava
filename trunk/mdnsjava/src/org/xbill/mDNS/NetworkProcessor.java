@@ -7,12 +7,13 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Options;
 
@@ -37,6 +38,12 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         private byte[] data;
         
+        protected static int sequence;
+        
+        protected int id;
+        
+        protected ExecutionTimer timer = new ExecutionTimer();
+        
         
         protected Packet(DatagramPacket datagram)
         {
@@ -46,6 +53,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         protected Packet(InetAddress address, int port, byte[] data, int offset, int length)
         {
+            this.id = Packet.sequence++;
             this.address = address;
             this.port = port;
             
@@ -104,11 +112,18 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         public void run()
         {
-System.err.println("Running " + packets.length + " on a single thread");
+            if (Options.check("mdns_verbose"))
+            {
+                System.err.println("Running " + packets.length + " on a single thread");
+            }
             for (Packet packet : packets)
             {
                 try
                 {
+                    if (Options.check("mdns_verbose"))
+                    {
+                        System.err.println("Processing packet " + packet.id + " took " + packet.timer.took(TimeUnit.MILLISECONDS));
+                    }
                     networkProcessor.listener.packetReceived(networkProcessor, packet);
                 } catch (Throwable e)
                 {
@@ -203,30 +218,27 @@ System.err.println("Running " + packets.length + " on a single thread");
                 {
                     int count = 0;
                     // Reduce number of processing threads to a minimum
+                    long waitTill = System.currentTimeMillis() + 10;
                     while ((packet = queue.poll()) != null)
                     {
-                        int index = (count + 1) % packetProcessors.length;
-                        if (packetProcessors[index].submitPacket(packet))
+                        if (Options.check("mdns_verbose"))
                         {
-                            if (Options.check("mdns_verbose"))
-                            {
-                                System.out.println("Packets Processed");
-                            }
+                            System.err.println("Popped packet " + packet.id + " from queue.");
                         }
+                        int index = (count + 1) % packetProcessors.length;
+                        packetProcessors[index].submitPacket(packet);
                         
+                        long now;
                         // Wait a short period for more packets.
-                        if (queue.peek() == null)
+                        if (queue.peek() == null && (waitTill - (now = System.currentTimeMillis())) > 0)
                         {
-                            synchronized (queue)
-                            {
                                 try
                                 {
-                                    queue.wait(10);
+                                    Thread.sleep(waitTill - now);
                                 } catch (InterruptedException e)
                                 {
                                     // ignore
                                 }
-                            }
                         }
                     }
                     
@@ -244,9 +256,9 @@ System.err.println("Running " + packets.length + " on a single thread");
                         }
                     }
                     
-                    if (queue.peek() == null && !networkProcessor.exit)
+                    synchronized (queue)
                     {
-                        synchronized (queue)
+                        if (queue.peek() == null && !networkProcessor.exit)
                         {
                             try
                             {
@@ -280,7 +292,7 @@ System.err.println("Running " + packets.length + " on a single thread");
     
     protected PacketListener listener;
     
-    protected Queue<Packet> queue = new ConcurrentLinkedQueue<Packet>();
+    protected Queue<Packet> queue = new LinkedList<Packet>();
     
     
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)

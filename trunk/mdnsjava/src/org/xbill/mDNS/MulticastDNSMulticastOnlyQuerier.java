@@ -336,7 +336,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         public void begin()
         {
-// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.print("!!!! ");
                 if (lastPoll > 0)
@@ -354,7 +354,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         public void check(RRset rrs, int credibility, int expiresIn)
         {
-// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.println("CacheMonitor check RRset: expires in: " + expiresIn + " seconds : " + rrs);
             }
@@ -386,7 +386,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         public void expired(RRset rrs, int credibility)
         {
-// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
             {
                 System.out.println("CacheMonitor RRset expired : " + rrs);
             }
@@ -429,7 +429,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         m.addRecord((Record) records.get(index), Section.UPDATE);
                     }
 
-// TODO: Remove after Testing            if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+                    if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
                     {
                         System.out.println("CacheMonitor Broadcasting update for Authoritative Records:\n" + m);
                     }
