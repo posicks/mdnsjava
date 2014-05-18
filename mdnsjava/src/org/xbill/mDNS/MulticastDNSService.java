@@ -761,12 +761,32 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 
                 for (ServiceInstance service : foundServices.values())
                 {
-                    listenerProcessor.getDispatcher().serviceDiscovered(id, service);
+                    try
+                    {
+                        listenerProcessor.getDispatcher().serviceDiscovered(id, service);
+                    } catch (Exception e)
+                    {
+                        System.err.print("Error sending serviceDiscovered event - " + e.getMessage());
+                        if (Options.check("mdns_verbose"))
+                        {
+                            e.printStackTrace(System.err);
+                        }
+                    }
                 }
                 
                 for (ServiceInstance service : removedServices.values())
                 {
-                    listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                    try
+                    {
+                        listenerProcessor.getDispatcher().serviceRemoved(id, service);
+                    } catch (Exception e)
+                    {
+                        System.err.print("Error sending serviceRemoved event - " + e.getMessage());
+                        if (Options.check("mdns_verbose"))
+                        {
+                            e.printStackTrace(System.err);
+                        }
+                    }
                 }
             }
         }
