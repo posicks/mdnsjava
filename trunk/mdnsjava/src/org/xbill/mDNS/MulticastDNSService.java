@@ -13,6 +13,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Stack;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
@@ -34,6 +35,7 @@ import org.xbill.DNS.Section;
 import org.xbill.DNS.TXTRecord;
 import org.xbill.DNS.Type;
 import org.xbill.DNS.Update;
+import org.xbill.mDNS.Lookup.Domain;
 
 @SuppressWarnings({"unchecked","rawtypes"})
 public class MulticastDNSService extends MulticastDNSLookupBase
@@ -906,6 +908,117 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         }
         
         return false;
+    }
+
+
+    public Set<Domain> getDefaultBrowseDomains(Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        searchPath.addAll(Arrays.asList(Lookup.ALL_MULTICAST_DNS_DOMAINS));
+        results.addAll(getDomains(new String[] {Lookup.DEFAULT_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+
+
+    public Set<Domain> getBrowseDomains(Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        results.addAll(getDomains(new String[] {Lookup.DEFAULT_BROWSE_DOMAIN_NAME, Lookup.BROWSE_DOMAIN_NAME, Lookup.LEGACY_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+
+
+    public Set<Domain> getDefaultRegistrationDomains(Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        searchPath.addAll(Arrays.asList(Lookup.ALL_MULTICAST_DNS_DOMAINS));
+        results.addAll(getDomains(new String[] {Lookup.DEFAULT_REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+
+
+    public Set<Domain> getRegistrationDomains(Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        results.addAll(getDomains(new String[] {Lookup.DEFAULT_REGISTRATION_DOMAIN_NAME, Lookup.REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+    
+    
+    protected Set<Domain> getDomains(String[] names, Name[] path)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        
+        Stack<Name[]> stack = new Stack<Name[]>();
+        stack.push(path);
+        
+        while (!stack.isEmpty())
+        {
+            Name[] searchPath = stack.pop();
+            
+            Lookup lookup = null;
+            try
+            {
+                lookup = new Lookup(names);
+                lookup.setSearchPath(searchPath);
+                lookup.setQuerier(querier);
+                Domain[] domains = lookup.lookupDomains();
+                if (domains != null && domains.length > 0)
+                {
+                    List<Name> newDomains = new ArrayList<Name>();
+                    for (int index = 0; index < domains.length; index++)
+                    {
+                        if (!results.contains(domains[index].getName()))
+                        {
+                            newDomains.add(domains[index].getName());
+                            results.add(domains[index]);
+                        }
+                    }
+                    if (newDomains.size() > 0)
+                    {
+                        stack.push(newDomains.toArray(new Name[newDomains.size()]));
+                    }
+                }
+            } catch (IOException e)
+            {
+                System.err.println(e.getMessage());
+                e.printStackTrace(System.err);
+            } finally
+            {
+                if (lookup != null)
+                {
+                    try
+                    {
+                        lookup.close();
+                    } catch (Exception e)
+                    {
+                        // ignore
+                    }
+                }
+            }
+        }
+        
+        return results;
     }
 
 
