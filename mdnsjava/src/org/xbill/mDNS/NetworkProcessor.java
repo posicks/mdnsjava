@@ -7,9 +7,9 @@ import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
@@ -276,7 +276,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected PacketListener listener;
     
-    protected Queue<Packet> queue = new LinkedList<Packet>();
+    protected Queue<Packet> queue = new ConcurrentLinkedQueue<Packet>();
     
     
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
