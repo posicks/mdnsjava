@@ -66,6 +66,13 @@ public class Lookup extends MulticastDNSLookupBase
         
         
         @Override
+        public int hashCode()
+        {
+            return name.hashCode();
+        }
+        
+        
+        @Override
         public boolean equals(Object obj)
         {
             if (obj == this)
@@ -258,6 +265,7 @@ public class Lookup extends MulticastDNSLookupBase
                 Lookup lookup = new Lookup(new Name[]{name}, Type.PTR, DClass.ANY);
                 resolvers.add(lookup);
                 
+                /*
                 Name[] defaultBrowseDomains = lookup.getQuerier().getMulticastDomains();
                 if (defaultBrowseDomains != null && defaultBrowseDomains.length > 0)
                 {
@@ -270,6 +278,7 @@ public class Lookup extends MulticastDNSLookupBase
                         }
                     }
                 }
+                */
                 
                 lookup.lookupRecordsAsync(new RecordListener()
                 {
