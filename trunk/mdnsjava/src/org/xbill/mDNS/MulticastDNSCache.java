@@ -527,24 +527,26 @@ public class MulticastDNSCache extends Cache implements Closeable
      * 
      * @param monitor the CacheMonitor
      */
-    public void setCacheMonitor(CacheMonitor monitor)
+    public synchronized void setCacheMonitor(CacheMonitor monitor)
     {
-        cacheMonitor = monitor;
-        if (cacheMonitor == null)
+        if (monitor != null)
         {
+            ScheduledExecutorService executor = this.executor;
             if (executor != null)
             {
                 executor.shutdown();
-                executor = null;
             }
+            this.executor = executor = Executors.newScheduledThreadPool(1);
+            this.cacheMonitor = monitor;
+            executor.scheduleAtFixedRate(new MonitorTask(this, monitor), 1, 1, TimeUnit.SECONDS);
         } else
         {
+            ScheduledExecutorService executor = this.executor;
             if (executor != null)
             {
                 executor.shutdown();
+                this.executor = executor = null;
             }
-            executor = Executors.newScheduledThreadPool(1);
-            executor.scheduleAtFixedRate(new MonitorTask(this, this.cacheMonitor), 1, 1, TimeUnit.SECONDS);
         }
     }
     
@@ -879,11 +881,12 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
-    public void close()
+    public synchronized void close()
     throws IOException
     {
         if (this != DEFAULT_MDNS_CACHE)
         {
+            ScheduledExecutorService executor = this.executor;
             if (executor != null)
             {
                 executor.shutdown();
@@ -900,6 +903,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                 }
             }
             
+            // Run final cache check, sending mDNS messages if needed
             if (cacheMonitor != null)
             {
                 MonitorTask task = new MonitorTask(this, cacheMonitor, true);
@@ -912,7 +916,14 @@ public class MulticastDNSCache extends Cache implements Closeable
     protected void finalize()
     throws Throwable
     {
-        close();
-        super.finalize();
+        try
+        {
+            close();
+            super.finalize();
+        } catch (Throwable t)
+        {
+            System.err.println(t.getMessage());
+            t.printStackTrace(System.err);
+        }
     }
 }
