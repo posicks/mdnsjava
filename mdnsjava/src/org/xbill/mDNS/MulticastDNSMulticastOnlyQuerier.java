@@ -327,9 +327,9 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
 
     private CacheMonitor cacheMonitor = new CacheMonitor()
     {
-        private List records = new ArrayList();
+        private List authRecords = new ArrayList();
         
-        private boolean foundAuthoritiveRecords;
+        private List nonauthRecords = new ArrayList();
         
         private long lastPoll = -1;
         
@@ -347,8 +347,8 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
             lastPoll = System.nanoTime();
             
-            records.clear();
-            foundAuthoritiveRecords = false;
+            authRecords.clear();
+            nonauthRecords.clear();
         }
         
         
@@ -363,7 +363,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             // Update expiry of records in accordance to RFC 6762 Section 5.2
             if (credibility >= Credibility.AUTH_AUTHORITY)
             {
-                foundAuthoritiveRecords = true;
                 if (isAboutToExpire(ttl, expiresIn))
                 {
                     Record[] records = MulticastDNSUtils.extractRecords(rrs);
@@ -372,7 +371,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         try
                         {
                             MulticastDNSUtils.setTLLForRecord(record, ttl);
-                            this.records.add(record);
+                            this.authRecords.add(record);
                         } catch (Exception e)
                         {
                             System.err.println(e.getMessage());
@@ -390,27 +389,32 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             {
                 System.out.println("CacheMonitor RRset expired : " + rrs);
             }
+            
+            List<Record> list;
             if (credibility >= Credibility.AUTH_AUTHORITY)
             {
-                Record[] records = MulticastDNSUtils.extractRecords(rrs);
-                if (records != null && records.length > 0)
-                {
-                    for (int i = 0; i < records.length; i++)
-                    {
-                        try
-                        {
-                            MulticastDNSUtils.setTLLForRecord(records[i], 0);
-                            this.records.add(records[i]);
-                        } catch (Exception e)
-                        {
-                            System.err.println(e.getMessage());
-                            e.printStackTrace(System.err);
-                        }
-                    }
-                }
+                list = this.authRecords;
             } else
             {
+                list = this.nonauthRecords;
                 // TODO: Notify local clients, not Network!
+            }
+            
+            Record[] records = MulticastDNSUtils.extractRecords(rrs);
+            if (records != null && records.length > 0)
+            {
+                for (int i = 0; i < records.length; i++)
+                {
+                    try
+                    {
+                        MulticastDNSUtils.setTLLForRecord(records[i], 0);
+                        list.add(records[i]);
+                    } catch (Exception e)
+                    {
+                        System.err.println(e.getMessage());
+                        e.printStackTrace(System.err);
+                    }
+                }
             }
         }
         
@@ -419,14 +423,14 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         {
             try
             {
-                if (records.size() > 0)
+                if (authRecords.size() > 0)
                 {
                     Message m = new Message();
                     Header h = m.getHeader();
                     h.setOpcode(Opcode.UPDATE);
-                    for (int index = 0; index < records.size(); index++)
+                    for (int index = 0; index < authRecords.size(); index++)
                     {
-                        m.addRecord((Record) records.get(index), Section.UPDATE);
+                        m.addRecord((Record) authRecords.get(index), Section.UPDATE);
                     }
 
                     if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
@@ -434,6 +438,25 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         System.out.println("CacheMonitor Broadcasting update for Authoritative Records:\n" + m);
                     }
                     broadcast(m, false);
+                }
+                
+                // Notify Local client of expired records
+                if (nonauthRecords.size() > 0)
+                {
+                    Message m = new Message();
+                    Header h = m.getHeader();
+                    h.setOpcode(Opcode.QUERY);
+                    h.setFlag(Flags.QR);
+                    for (int index = 0; index < nonauthRecords.size(); index++)
+                    {
+                        m.addRecord((Record) nonauthRecords.get(index), Section.UPDATE);
+                    }
+
+                    if (Options.check("mdns_verbose") || Options.check("mdns_cache_verbose"))
+                    {
+                        System.out.println("CacheMonitor Locally Broadcasting Non-Authoritative Records:\n" + m);
+                    }
+                    resolverListenerProcessor.getDispatcher().receiveMessage(h.getID(), m);
                 }
             } catch (IOException e)
             {
@@ -452,12 +475,8 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 e.printStackTrace(System.err);
             }
             
-            if (!foundAuthoritiveRecords)
-            {
-                cache.setCacheMonitor(null);
-            }
-            
-            records.clear();
+            authRecords.clear();
+            nonauthRecords.clear();
         }
 
 
@@ -490,7 +509,11 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     throws IOException
     {
         super();
-        this.cache = MulticastDNSCache.DEFAULT_MDNS_CACHE;
+        cache = MulticastDNSCache.DEFAULT_MDNS_CACHE;
+        if (cache.getCacheMonitor() == null)
+        {
+            cache.setCacheMonitor(cacheMonitor);
+        }
         
         // Set Address to any local address
         setAddress(address);
@@ -795,11 +818,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     {
         if (records != null && records.length > 0)
         {
-            if (cache.getCacheMonitor() == null)
-            {
-                cache.setCacheMonitor(cacheMonitor);
-            }
-            
             for (int index = 0; index < records.length; index++)
             {
                 Record record = records[index];
@@ -834,18 +852,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     } else
                     {
                         // Remove unregistered records from Cache
-                        RRset[] rrs = cache.findAnyRecords(cacheRecord.getName(), cacheRecord.getType());
-                        if (rrs != null && rrs.length > 0)
-                        {
-                            for (int i = 0; i < rrs.length; i++)
-                            {
-                                if (Options.check("mdns_verbose"))
-                                {
-                                    System.out.println("Removing Cached Record: " + rrs[i]);
-                                }
-                                cache.removeRRset(rrs[i]);
-                            }
-                        }
+                        cache.removeElementCopy(cacheRecord.getName(), cacheRecord.getType());
                     }
                 } catch (Exception e)
                 {
@@ -1292,11 +1299,19 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         if (cache instanceof MulticastDNSCache)
         {
             this.cache = (MulticastDNSCache) cache;
+            if (this.cache.getCacheMonitor() == null)
+            {
+                this.cache.setCacheMonitor(cacheMonitor);
+            }
         } else
         {
             try
             {
                 this.cache = new MulticastDNSCache(cache);
+                if (this.cache.getCacheMonitor() == null)
+                {
+                    this.cache.setCacheMonitor(cacheMonitor);
+                }
             } catch (Exception e)
             {
                 if (Options.check("verbose"))
