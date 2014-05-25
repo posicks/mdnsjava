@@ -758,7 +758,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         }
                     }
                 }
-                
+                // TODO: Check found services against already found services!
                 for (ServiceInstance service : foundServices.values())
                 {
                     try

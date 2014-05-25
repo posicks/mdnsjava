@@ -948,7 +948,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     }
 
     
-    public void packetReceived(NetworkProcessor processor, Packet packet)
+    public void packetReceived(Packet packet)
     {
         if (Options.check("mdns_verbose"))
         {
