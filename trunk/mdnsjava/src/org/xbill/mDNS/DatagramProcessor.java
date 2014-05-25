@@ -103,7 +103,8 @@ public class DatagramProcessor extends NetworkProcessor
     }
     
     
-    public void _send(byte[] data)
+    @Override
+    public void send(byte[] data)
     throws IOException
     {
         if (exit)
@@ -155,16 +156,12 @@ public class DatagramProcessor extends NetworkProcessor
                 {
                     System.err.println("Received packet " + packet.id);
                     packet.timer.start();
+                    packet.timer.start();
                 }
-                synchronized (queue)
+                
+                if (!queue.offer(packet))
                 {
-                    if (queue.offer(packet))
-                    {
-                        queue.notifyAll();
-                    } else
-                    {
-                        System.err.println("Could NOT place data into the Packet Queue!");
-                    }
+                    System.err.println("Could NOT place Packet into the Queue!");
                 }
             } catch (SecurityException e)
             {

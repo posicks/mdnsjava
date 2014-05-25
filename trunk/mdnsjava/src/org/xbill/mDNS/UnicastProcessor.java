@@ -180,7 +180,7 @@ e.printStackTrace(System.err);
     
     
     @Override
-    public void _send(byte[] data)
+    public void send(byte[] data)
     throws IOException
     {
         // TODO Auto-generated method stub
