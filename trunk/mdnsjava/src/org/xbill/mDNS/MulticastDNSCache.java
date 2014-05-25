@@ -650,7 +650,7 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
-    private void removeElementCopy(Name name, int type)
+    public void removeElementCopy(Name name, int type)
     {
         try
         {
