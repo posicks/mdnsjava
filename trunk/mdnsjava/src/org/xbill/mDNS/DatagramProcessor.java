@@ -10,8 +10,6 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 
-import org.xbill.DNS.Options;
-
 public class DatagramProcessor extends NetworkProcessor
 {
     // The default UDP datagram payload size
@@ -124,7 +122,7 @@ public class DatagramProcessor extends NetworkProcessor
             socket.send(packet);
         } catch (IOException e)
         {
-            if (Options.check("mdns_verbose"))
+            if (verboseLogging)
             {
                 System.err.println("Error sending datagram to \"" + packet.getSocketAddress() + "\".");
                 e.printStackTrace(System.err);
@@ -142,6 +140,12 @@ public class DatagramProcessor extends NetworkProcessor
     }
     
     
+    public boolean isOperational()
+    {
+        return super.isOperational() && socket.isConnected();
+    }
+    
+    
     public void run()
     {
         while (!exit)
@@ -151,34 +155,32 @@ public class DatagramProcessor extends NetworkProcessor
                 byte[] buffer = new byte[this.mtu];
                 final DatagramPacket datagram = new DatagramPacket(buffer, buffer.length);
                 socket.receive(datagram);
-                Packet packet = new Packet(datagram);
-                if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
+                if (datagram.getLength() > 0)
                 {
-                    System.err.println("Received packet " + packet.id);
-                    packet.timer.start();
-                    packet.timer.start();
-                }
-                
-                if (!queue.offer(packet))
-                {
-                    System.err.println("Could NOT place Packet into the Queue!");
+                    Packet packet = new Packet(datagram);
+                    if (verboseLogging)
+                    {
+                        System.err.println("-----> Received packet " + packet.id + " <-----");
+                        packet.timer.start();
+                        packet.timer.start();
+                    }
+                    processorExecutor.execute(new PacketRunner(listener, packet));
+/*                    if (!queue.offer(packet))
+                    {
+                        System.err.println("Could NOT place Packet into the Queue!");
+                    }
+*/
                 }
             } catch (SecurityException e)
             {
-                if (Options.check("mdns_verbose"))
-                {
-                    System.err.println("Security issue receiving data from \"" + address + "\" - " + e.getMessage());
-                    e.printStackTrace(System.err);
-                }
+                System.err.println("Security issue receiving data from \"" + address + "\" - " + e.getMessage());
+                e.printStackTrace(System.err);
             } catch (Exception e)
             {
-                if (!(socket.isClosed() && exit))
+                if (!exit)
                 {
-                    if (Options.check("mdns_verbose"))
-                    {
-                        System.err.println("Error receiving data from \"" + address + "\" - " + e.getMessage());
-                        e.printStackTrace(System.err);
-                    }
+                    System.err.println("Error receiving data from \"" + address + "\" - " + e.getMessage());
+                    e.printStackTrace(System.err);
                 }
             }
         }
@@ -196,7 +198,7 @@ public class DatagramProcessor extends NetworkProcessor
     public void close()
     throws IOException
     {
-        exit = true;
+        super.close();
         
         if (isMulticast)
         {
@@ -205,14 +207,14 @@ public class DatagramProcessor extends NetworkProcessor
                 ((MulticastSocket) socket).leaveGroup(address);
             } catch (SecurityException e)
             {
-                if (Options.check("mdns_verbose"))
+                if (verboseLogging)
                 {
                     System.err.println("Security issue leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage());
                     e.printStackTrace(System.err);
                 }
             } catch (Exception e)
             {
-                if (Options.check("mdns_verbose"))
+                if (verboseLogging)
                 {
                     System.err.println("Error leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage());
                     e.printStackTrace(System.err);

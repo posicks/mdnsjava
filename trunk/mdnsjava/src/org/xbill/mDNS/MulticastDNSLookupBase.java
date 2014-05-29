@@ -46,7 +46,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
         {
             try
             {
-                defaultQuerier = new MulticastDNSQuerier(true, false);
+                defaultQuerier = new MulticastDNSQuerier(true, true);
             } catch (IOException e)
             {
                 System.err.println(e.getMessage());
@@ -142,6 +142,8 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     protected int dclass = DClass.ANY;
     
     protected Message[] queries;
+
+    protected boolean mdnsVerbose;
     
     
     protected MulticastDNSLookupBase()
@@ -149,6 +151,8 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     {
         super();
         
+        mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
+
         this.querier = getDefaultQuerier();
         this.searchPath = getDefaultSearchPath();
     }
@@ -241,7 +245,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                         domainNames.add(new Name(names[index]));
                     } catch (TextParseException e)
                     {
-                        if (Options.check("mdns_verbose"))
+                        if (mdnsVerbose)
                         {
                             System.err.println("Error parsing \"" + names[index] + "\" - " + e.getMessage());
                         }
@@ -255,7 +259,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                             domainNames.add(new Name(names[index] + "." + searchPath[i]));
                         } catch (TextParseException e)
                         {
-                            if (Options.check("mdns_verbose"))
+                            if (mdnsVerbose)
                             {
                                 System.err.println("Error parsing \"" + (names[index] + "." + searchPath[i]) + "\" - " + e.getMessage());
                             }
@@ -299,7 +303,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                             newQueries[i].addRecord(Record.newRecord(absoluteName, this.type, this.dclass), Section.QUESTION);
                         } catch (NameTooLongException e)
                         {
-                            if (Options.check("mdns_verbose"))
+                            if (mdnsVerbose)
                             {
                                 System.err.println(e.getMessage());
                                 e.printStackTrace(System.err);
@@ -580,7 +584,6 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     protected static ServiceInstance[] extractServiceInstances(Message... messages)
     {
-        Map services = new HashMap();
         Record[] records = null;
         
         for (Message message : messages)
@@ -597,6 +600,14 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                 System.arraycopy(temp, 0, records, records.length, temp.length);
             }
         }
+        
+        return extractServiceInstances(records);
+    }
+    
+    
+    protected static ServiceInstance[] extractServiceInstances(Record[] records)
+    {
+        Map services = new HashMap();
         
         ServiceInstance service = null;
         Arrays.sort(records, SERVICE_RECORD_SORTER);

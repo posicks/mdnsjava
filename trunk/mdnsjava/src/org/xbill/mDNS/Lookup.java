@@ -191,22 +191,48 @@ public class Lookup extends MulticastDNSLookupBase
     public Record[] lookupRecords()
     throws IOException
     {
-        final List results = new ArrayList();
-        final List records = new ArrayList();
+        final List ids = new ArrayList();
+        final List messages = new ArrayList();
+        final List exceptions = new ArrayList();
         
+        final Querier querier = getQuerier();
         for (Message query : queries)
         {
-            results.add(getQuerier().send(query));
+            ids.add(querier.sendAsync(query, new ResolverListener()
+            {
+                public void receiveMessage(Object id, Message m)
+                {
+                    messages.add(m);
+                }
+                
+                
+                public void handleException(Object id, Exception e)
+                {
+                    exceptions.add(e);
+                }
+            }));
         }
         
-        Message[] messages;
-        synchronized (results)
+        int wait = Options.intValue("mdns_resolve_wait");
+        long timeOut = wait >= 0 ? wait : 1000;
+        long now;
+        long end = timeOut + (now = System.currentTimeMillis());
+        while ((now = System.currentTimeMillis()) < end)
         {
-            messages = (Message[]) results.toArray(new Message[results.size()]);
+            try
+            {
+                Thread.sleep(end - now);
+            } catch (InterruptedException e)
+            {
+                // ignore
+            }
         }
         
-        for (Message m : messages)
+        List records = new ArrayList();
+        
+        for (Object o : messages)
         {
+            Message m = (Message) o;
             switch (m.getRcode())
             {
                 case Rcode.NOERROR :
@@ -224,30 +250,9 @@ public class Lookup extends MulticastDNSLookupBase
     public ServiceInstance[] lookupServices()
     throws IOException
     {
-        List results = new ArrayList();
-        IOException ioe = null;
-        
-        for (Message query : queries)
-        {
-            try
-            {
-                results.addAll(Arrays.asList(extractServiceInstances(getQuerier().send(query))));
-            } catch (IOException e)
-            {
-                ioe = e;
-            }
-        }
-        
-        if (results.size() > 0)
-        {
-            return (ServiceInstance[]) results.toArray(new ServiceInstance[results.size()]);
-        } else if (ioe != null)
-        {
-            throw ioe;
-        } else
-        {
-            return null;
-        }
+        final List results = new ArrayList();
+        results.addAll(Arrays.asList(extractServiceInstances(lookupRecords())));
+        return (ServiceInstance[]) results.toArray(new ServiceInstance[results.size()]);
     }
 
     

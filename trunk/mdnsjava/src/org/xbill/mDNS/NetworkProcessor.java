@@ -8,7 +8,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
@@ -27,9 +26,9 @@ public abstract class NetworkProcessor implements Runnable, Closeable
 
     public static final int MAX_QUEUE_THRESHOLD = 10;
 
-    private static final int CORE_PROCESSOR_THREAD = 1;
+    private static final int CORE_PROCESSOR_THREAD = 5;
 
-    private static final int MAX_PROCESSOR_THREAD = 5;
+    private static final int MAX_PROCESSOR_THREAD = 10;
     
     
     protected static interface PacketListener
@@ -98,21 +97,14 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         {
             Thread t = new Thread(r, "Network Processor Scheduled Thread");
             t.setDaemon(true);
+            t.setPriority(Thread.MAX_PRIORITY - 1);
+            t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
             return t;
         }
     });
 
     
-    protected ThreadPoolExecutor processorExecutor = new ThreadPoolExecutor(CORE_PROCESSOR_THREAD, MAX_PROCESSOR_THREAD, 0L, TimeUnit.MILLISECONDS,
-    new LinkedBlockingQueue<Runnable>(), new ThreadFactory()
-    {
-        public Thread newThread(Runnable r)
-        {
-            Thread t = new Thread(r, "Network Queue Processing Thread");
-            t.setDaemon(true);
-            return t;
-        }
-    });
+    protected ThreadPoolExecutor processorExecutor = null;
     
     
     protected static class PacketRunner implements Runnable
@@ -120,12 +112,15 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         private PacketListener dispatcher;
         
         private Packet[] packets;
+
+        private boolean verboseLogging = false;
         
         
         protected PacketRunner(PacketListener dispatcher, Packet... packets)
         {
             this.dispatcher = dispatcher;
             this.packets = packets;
+            this.verboseLogging = Options.check("mdns_verbose") || Options.check("mdns_packet_verbose");
         }
         
         
@@ -141,17 +136,17 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             {
                 try
                 {
-                    boolean log = Options.check("mdns_verbose") || Options.check("mdns_packet_verbose");
-                    if (log)
+                    if (verboseLogging)
                     {
                         double took = packet.timer.took(TimeUnit.MILLISECONDS);
                         System.out.println("ProcessingRunner took " + took + " milliseconds to start packet " + packet.id + ".");
                         took = packet.timer.took(TimeUnit.MILLISECONDS);
                         System.out.println("Processing packet " + packet.id + " took " + took + " to be executed by the PacketRunner.");
                         ExecutionTimer._start();
+                        System.err.println("-----> Running Packet " + packet.id + " <-----");
                     }
                     dispatcher.packetReceived(packet);
-                    if (log)
+                    if (verboseLogging)
                     {
                         System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " to be processed by dispatched to Listeners.");
                     }
@@ -165,193 +160,85 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     }
     
     
-    protected static class ThreadPoolAdjuster implements Runnable
+    /*
+    protected class QueueRunner implements Runnable
     {
-        private ThreadPoolExecutor processorExecutor;
-        
-        private int[] queueSizeHistory = new int[60];
-        
-        private int start = 0;
-        
-        private int end = 0;
-        
-        private int maxQueueSize = 0;
-        
-        private long lastThreadPoolAdjustment = 0;
-
-        
-        protected ThreadPoolAdjuster(ThreadPoolExecutor processorExecutor)
-        {
-            this.processorExecutor = processorExecutor;
-        }
-        
-        
-        public void check(int size)
-        {
-            if (size > maxQueueSize)
-            {
-                maxQueueSize = size;
-            }
-        }
-        
-        
-        public void run()
-        {
-            remember(maxQueueSize);
-            
-            int totalQueueSize = 0;
-            int averageQueueSize = 0;
-            int maxQueueSize = 0;
-            int[] history = getHistory();
-            for (int queueSize : history)
-            {
-                totalQueueSize += queueSize;
-                if (queueSize > maxQueueSize)
-                {
-                    maxQueueSize = queueSize;
-                }
-            }
-            averageQueueSize = totalQueueSize / history.length;
-            
-            boolean log = Options.check("mdns_packet_verbose");
-            if (log)
-            {
-                System.err.println("Max Queue Size:" + maxQueueSize + ", Total Queue Size: " + totalQueueSize + ", Average Queue Size: " + averageQueueSize);
-            }
-            
-            long now;
-            if ((now = System.currentTimeMillis()) > lastThreadPoolAdjustment + 60000)
-            {
-                lastThreadPoolAdjustment = now;
-                if (averageQueueSize > AVERAGE_QUEUE_THRESHOLD || maxQueueSize > MAX_QUEUE_THRESHOLD)
-                {
-                    int newCorePoolSize = processorExecutor.getCorePoolSize() + 1;
-                    int newMaxPoolSize = processorExecutor.getMaximumPoolSize() + 1;
-                    processorExecutor.setCorePoolSize(newCorePoolSize);
-                    processorExecutor.setMaximumPoolSize(newMaxPoolSize);
-                    if (log)
-                    {
-                        System.err.println("Increasing Thread Pool Size to " + processorExecutor.getCorePoolSize() + " core threads & " + processorExecutor.getMaximumPoolSize() + " max threads.");
-                    }
-                } else if (averageQueueSize < AVERAGE_QUEUE_THRESHOLD && maxQueueSize < MAX_QUEUE_THRESHOLD && 
-                          (processorExecutor.getCorePoolSize() > CORE_PROCESSOR_THREAD || processorExecutor.getMaximumPoolSize() > MAX_PROCESSOR_THREAD))
-                {
-                    int newCorePoolSize = processorExecutor.getCorePoolSize() - 1;
-                    int newMaxPoolSize = processorExecutor.getMaximumPoolSize() - 1;
-                    processorExecutor.setCorePoolSize(newCorePoolSize < CORE_PROCESSOR_THREAD ? CORE_PROCESSOR_THREAD : newCorePoolSize);
-                    processorExecutor.setMaximumPoolSize(newMaxPoolSize < MAX_PROCESSOR_THREAD ? MAX_PROCESSOR_THREAD : newMaxPoolSize);
-                    if (log)
-                    {
-                        System.err.println("Decreasing Thread Pool Size to " + processorExecutor.getCorePoolSize() + " core threads & " + processorExecutor.getMaximumPoolSize() + " max threads.");
-                    }
-                }
-            }
-            
-            this.maxQueueSize = 0;
-        }
-        
-        
-        public int[] getHistory()
-        {
-            int[] history = new int[(end > start ? end - start : queueSizeHistory.length)];
-            int length = 0;
-            
-            length = (end > start ? end : queueSizeHistory.length) - start;
-            System.arraycopy(queueSizeHistory, start, history, 0, length);
-            
-            if (end < start)
-            {
-                System.arraycopy(queueSizeHistory, 0, history, length, end);
-            }
-            
-            return history;
-        }
-        
-        
-        private final void remember(int size)
-        {
-            queueSizeHistory[end++] = size;
-            if (end >= queueSizeHistory.length)
-            {
-                end = 0;
-            }
-            
-            if (start == end)
-            {
-                start++;
-                if (start >= queueSizeHistory.length)
-                {
-                    start = 0;
-                }
-            }
-        }
-    }
-    
-    
-    protected static class QueueRunner implements Runnable
-    {
-        private NetworkProcessor networkProcessor;
-        
-        private Executor executor;
-        
-        private Queue<Packet> queue;
-        
-        private ThreadPoolAdjuster queueChecker;
-        
         private long lastRun = System.currentTimeMillis();
+        
+        private boolean verboseLogging = false;
 
         
-        protected QueueRunner(NetworkProcessor networkProcessor, Executor executor, Queue<Packet> queue, ThreadPoolAdjuster queueChecker)
+        protected QueueRunner()
         {
-            this.networkProcessor = networkProcessor;
-            this.executor = executor;
-            this.queue = queue;
-            this.queueChecker = queueChecker;
+            verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
+                             Options.check("mdns_verbose") || Options.check("verbose");
         }
         
         
         public void run()
         {
-            if (Options.check("mdns_packet_verbose"))
+            while (!exit)
             {
-                long now = System.currentTimeMillis();
-                long time = now - lastRun;
-                if (time > 20)
+                if (verboseLogging)
                 {
-                    System.out.println("-----> QueueRunner last run " + time + " milliseconds ago. <-----");
+                    long now = System.currentTimeMillis();
+                    long time = now - lastRun;
+                    if (time > 50)
+                    {
+                        System.out.println("-----> QueueRunner last run " + time + " milliseconds ago. <-----");
+                    }
+                    lastRun = now;
                 }
-                lastRun = now;
-            }
-            
-            Packet packet = null;
-            
-            int packetCount = 0;
-            while ((packet = queue.poll()) != null)
-            {
-                packetCount++;
-                if (Options.check("mdns_packet_verbose"))
+                
+                Packet packet = null;
+                
+                while ((packet = queue.poll()) != null)
                 {
-                    double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                    System.out.println("Packet \"" + packet.id + "\" took " + took + " to be popped from queue.");
-                    packet.timer.start();
+                    if (verboseLogging)
+                    {
+                        double took = packet.timer.took(TimeUnit.MILLISECONDS);
+                        System.out.println("Packet \"" + packet.id + "\" took " + took + " to be popped from queue.");
+                        packet.timer.start();
+                        System.err.println("-----> Passing packet " + packet.id + " onto PacketRunner <-----");
+                    }
+                    
+                    try
+                    {
+                        if (verboseLogging)
+                        {
+                            double took = packet.timer.took(TimeUnit.MILLISECONDS);
+                            System.out.println("ProcessingRunner took " + took + " milliseconds to start packet " + packet.id + ".");
+                            took = packet.timer.took(TimeUnit.MILLISECONDS);
+                            System.out.println("Processing packet " + packet.id + " took " + took + " to be executed by the PacketRunner.");
+                            ExecutionTimer._start();
+                        }
+                        if (verboseLogging)
+                        {
+                            System.err.println("-----> Dispatching packet " + packet.id + " <-----");
+                        }
+                        processorExecutor.execute(new PacketRunner(listener, packet));
+                        if (verboseLogging)
+                        {
+                            System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " to be processed by dispatched to Listeners.");
+                        }
+                    } catch (Throwable e)
+                    {
+                        System.err.println("Error dispatching data packet - " + e.getMessage());
+                        e.printStackTrace(System.err);
+                    }
                 }
-                executor.execute(new PacketRunner(networkProcessor.listener, packet));
-            }
-            
-            if (Options.check("mdns_packet_verbose"))
-            {
-                queueChecker.check(packetCount);
-            }
-            
-            try
-            {
-                Thread.sleep(10);
-            } catch (InterruptedException e)
-            {
-                // ignore
+                
+                try
+                {
+                    Thread.sleep(10);
+                } catch (InterruptedException e)
+                {
+                    // ignore
+                }
             }
         }
     }
+*/
     
     protected InetAddress ifaceAddress;
     
@@ -369,12 +256,15 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected Queue<Packet> queue = new ConcurrentLinkedQueue<Packet>();
     
+    protected boolean verboseLogging = false; 
+    
     
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
-// TO DO: Remove when done testing
-//Options.set("mdns_packet_verbose");
+        verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
+                         Options.check("mdns_verbose") || Options.check("verbose");
+        
         setInterfaceAddress(ifaceAddress);
         setAddress(address);
         setPort(port);
@@ -387,11 +277,50 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         ipv6 = address.getAddress().length > 4;
         
         this.listener = listener;
-        ThreadPoolAdjuster queueChecker = new ThreadPoolAdjuster(processorExecutor);
-        scheduledExecutor.scheduleAtFixedRate(new QueueRunner(this, processorExecutor, queue, queueChecker), 10, 10, TimeUnit.MILLISECONDS);
-        if (Options.check("mdns_packet_verbose"))
+        scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
-            scheduledExecutor.scheduleAtFixedRate(queueChecker, 1, 1, TimeUnit.SECONDS);
+            public void run()
+            {
+                verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
+                                 Options.check("mdns_verbose") || Options.check("verbose");
+            }
+        }, 1, 1, TimeUnit.MINUTES);
+    }
+    
+    
+    public void start()
+    {
+        exit = false;
+        
+        processorExecutor = new ThreadPoolExecutor(CORE_PROCESSOR_THREAD, MAX_PROCESSOR_THREAD, 0L, TimeUnit.MILLISECONDS,
+        new LinkedBlockingQueue<Runnable>(), new ThreadFactory()
+        {
+            public Thread newThread(Runnable r)
+            {
+                Thread t = new Thread(r, "Network Queue Processing Thread");
+                t.setDaemon(false);
+                t.setPriority(Thread.MAX_PRIORITY - 1);
+                t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
+                return t;
+            }
+        });
+        
+//        processorExecutor.execute(new QueueRunner(/*, queueChecker*/));
+        processorExecutor.execute(this);
+    }
+    
+    
+    public void close()
+    throws IOException
+    {
+        exit = true;
+        processorExecutor.shutdownNow();
+        try
+        {
+            processorExecutor.awaitTermination(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e)
+        {
+            System.err.println("Timeout occured while awaiting the Network Processor Executor to shutdown.");
         }
     }
     
@@ -403,6 +332,14 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public int getMTU()
     {
         return mtu;
+    }
+    
+    
+    public boolean isOperational()
+    {
+        return !exit && !processorExecutor.isShutdown() && 
+               !processorExecutor.isTerminated() && !processorExecutor.isTerminating() &&
+               !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated();
     }
 
 
