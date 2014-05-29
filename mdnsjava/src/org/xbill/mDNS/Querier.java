@@ -78,6 +78,14 @@ public interface Querier extends Resolver, Closeable
     
     
     /**
+     * Returns true if the Querier is fully operational, all threads and executors are running.
+     * 
+     * @return true if the Querier is fully operational, all threads and executors are running
+     */
+    public boolean isOperational();
+    
+    
+    /**
      * Returns the Multicast domains pertinent for this Responder.
      * 
      * @return The Mulitcast domains pertinent for this Responder

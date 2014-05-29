@@ -14,7 +14,6 @@ import org.xbill.DNS.Header;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
-import org.xbill.DNS.Options;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
@@ -144,7 +143,7 @@ public class Browse extends MulticastDNSLookupBase
         
         public void run()
         {
-            if (Options.check("mdns_verbose"))
+            if (mdnsVerbose)
             {
                 long now = System.currentTimeMillis();
                 System.out.println("Broadcasting Query for Browse." + (lastBroadcast <= 0 ? "" : " Last broadcast was " + ((double) ((double) (now - lastBroadcast) / (double) 1000)) + " seconds ago.") );
@@ -156,7 +155,7 @@ public class Browse extends MulticastDNSLookupBase
                 broadcastDelay = broadcastDelay > 0 ? Math.min(broadcastDelay * 2, 3600) : 1;
                 scheduledExecutor.schedule(this, broadcastDelay, TimeUnit.SECONDS);
                 
-                if (Options.check("mdns_verbose") || Options.check("mdns_browse"))
+                if (mdnsVerbose)
                 {
                     System.out.println("Broadcasting Query for Browse Operation.");
                 }
@@ -275,7 +274,7 @@ public class Browse extends MulticastDNSLookupBase
     {
         if (listener == null)
         {
-            if (Options.check("mdns_verbose"))
+            if (mdnsVerbose)
             {
                 System.err.println("Error sending asynchronous query, listener is null!");
             }
@@ -284,7 +283,7 @@ public class Browse extends MulticastDNSLookupBase
         
         if (queries == null || queries.length == 0)
         {
-            if (Options.check("mdns_verbose"))
+            if (mdnsVerbose)
             {
                 System.err.println("Error sending asynchronous query, No queries specified!");
             }

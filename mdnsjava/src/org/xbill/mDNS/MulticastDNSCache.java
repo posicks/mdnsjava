@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Cache;
@@ -202,6 +203,14 @@ public class MulticastDNSCache extends Cache implements Closeable
          * refresh of items identified as requiring a refresh.
          */
         public void end();
+        
+        
+        /**
+         * Returns true if the CacheMonitor is operational (being called regularly).
+         * 
+         * @return true if the CacheMonitor is operational (being called regularly)
+         */
+        public boolean isOperational();
     }
     
     
@@ -211,20 +220,21 @@ public class MulticastDNSCache extends Cache implements Closeable
         
         private MulticastDNSCache cache;
         
-        private CacheMonitor cacheMonitor;
+        private boolean mdnsVerbose = false;
         
         
-        MonitorTask(MulticastDNSCache cache, CacheMonitor monitor)
+        MonitorTask(MulticastDNSCache cache)
         {
-            this(cache, monitor, false);
+            this(cache, false);
         }
         
         
-        MonitorTask(MulticastDNSCache cache, CacheMonitor monitor, boolean shutdown)
+        MonitorTask(MulticastDNSCache cache, boolean shutdown)
         {
             this.cache = cache;
-            this.cacheMonitor = monitor;
             this.shutdown = false;
+            
+            mdnsVerbose = Options.check("mdns_verbose");
         }
         
         
@@ -232,6 +242,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         {
             try
             {
+                CacheMonitor cacheMonitor = cache.getCacheMonitor();
                 if (cacheMonitor == null || shutdown)
                 {
                     return;
@@ -242,7 +253,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                     cacheMonitor.begin();
                 } catch (Exception e)
                 {
-                    if (Options.check("mdns_verbose"))
+                    if (mdnsVerbose)
                     {
                         System.err.println(e.getMessage());
                         e.printStackTrace(System.err);
@@ -279,7 +290,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                         }
                     } catch (Exception e)
                     {
-                        if (Options.check("mdns_verbose"))
+                        if (mdnsVerbose)
                         {
                             System.err.println(e.getMessage());
                             e.printStackTrace(System.err);
@@ -292,7 +303,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                     cacheMonitor.end();
                 } catch (Exception e)
                 {
-                    if (Options.check("mdns_verbose"))
+                    if (mdnsVerbose)
                     {
                         System.err.println(e.getMessage());
                         e.printStackTrace(System.err);
@@ -326,6 +337,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                         }
                     }
                     
+                    CacheMonitor cacheMonitor = cache.getCacheMonitor();
                     int expiresIn = element.getExpiresIn();
                     if (expiresIn <= 0 || rrs.getTTL() <= 0)
                     {
@@ -361,7 +373,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             {
                 temp = new MulticastDNSCache();
                 
-                if (Options.check("mdns_verbose"))
+                if (Options.check("mdns_verbose") || Options.check("verbose"))
                 {
                     System.err.println("Error loading default cache values.");
                     e.printStackTrace(System.err);
@@ -392,6 +404,8 @@ public class MulticastDNSCache extends Cache implements Closeable
     private Method findElement = null;
     
     private Method removeElement = null;
+
+    private boolean mdnsVerbose;
     
     
     /**
@@ -464,6 +478,12 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
+    public boolean isOperational()
+    {
+        return executor != null && !executor.isShutdown() && !executor.isTerminated(); 
+    }
+    
+    
     /**
      * !!! Work around to access private methods in Cache superclass
      * !!! This method will be removed when the super class is made extensible (private members made protected)
@@ -478,6 +498,8 @@ public class MulticastDNSCache extends Cache implements Closeable
     protected void populateReflectedFields()
     throws NoSuchFieldException, NoSuchMethodException 
     {
+        mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
+        
         Class clazz = getClass().getSuperclass();
         
         try
@@ -493,7 +515,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             throw e;
         } catch (Exception e)
         {
-            if (Options.check("verbose"))
+            if (mdnsVerbose)
             {
                 System.err.println(e.getMessage());
                 e.printStackTrace(System.err);
@@ -512,7 +534,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             throw e;
         } catch (Exception e)
         {
-            if (Options.check("verbose"))
+            if (mdnsVerbose)
             {
                 System.err.println(e.getMessage());
                 e.printStackTrace(System.err);
@@ -536,9 +558,18 @@ public class MulticastDNSCache extends Cache implements Closeable
             {
                 executor.shutdown();
             }
-            this.executor = executor = Executors.newScheduledThreadPool(1);
+            this.executor = executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory()
+            {
+                public Thread newThread(Runnable r)
+                {
+                    Thread t = new Thread(r, "mDNSCache Monitor Thread");
+                    t.setDaemon(true);
+                    t.setPriority(Thread.MAX_PRIORITY - 1);
+                    return t;
+                }
+            });
             this.cacheMonitor = monitor;
-            executor.scheduleAtFixedRate(new MonitorTask(this, monitor), 1, 1, TimeUnit.SECONDS);
+            executor.scheduleAtFixedRate(new MonitorTask(this), 1, 1, TimeUnit.SECONDS);
         } else
         {
             ScheduledExecutorService executor = this.executor;
@@ -641,7 +672,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         } catch (Exception e)
         {
             System.err.println(e.getMessage());
-            if (Options.check("verbose"))
+            if (mdnsVerbose)
             {
                 e.printStackTrace(System.err);
             }
@@ -658,7 +689,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         } catch (Exception e)
         {
             System.err.println(e.getMessage());
-            if (Options.check("verbose"))
+            if (mdnsVerbose)
             {
                 e.printStackTrace(System.err);
             }
@@ -906,7 +937,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             // Run final cache check, sending mDNS messages if needed
             if (cacheMonitor != null)
             {
-                MonitorTask task = new MonitorTask(this, cacheMonitor, true);
+                MonitorTask task = new MonitorTask(this, true);
                 task.run();
             }
         }

@@ -93,6 +93,8 @@ public class MulticastDNSQuerier implements Querier
         private int requestsSent;
 
         private List requestIDs = new ArrayList();
+        
+        private boolean mdnsVerbose = false;
 
         
         public Resolution(MulticastDNSQuerier querier, Message query, ResolverListener listener)
@@ -100,6 +102,7 @@ public class MulticastDNSQuerier implements Querier
             this.querier = querier;
             this.query = query;
             this.listener = listener;
+            mdnsVerbose = Options.check("mdns_verbose");
         }
 
 
@@ -107,7 +110,7 @@ public class MulticastDNSQuerier implements Querier
         {
             if (requestIDs.size() == 0 || requestIDs.contains(id) || this == id || this.equals(id) || MulticastDNSUtils.answersAny(query, message))
             {
-                if (Options.check("mdns_verbose"))
+                if (mdnsVerbose)
                 {
                     System.out.println("!!!! Message Received - " + id + " - " + query.getQuestion());
                 }
@@ -121,7 +124,7 @@ public class MulticastDNSQuerier implements Querier
                 {
                     listener.receiveMessage(this, message);
                 }
-            } else if (Options.check("mdns_verbose"))
+            } else if (mdnsVerbose)
             {
                 
                 String msg = "!!!!! Message Disgarded ";
@@ -143,7 +146,7 @@ public class MulticastDNSQuerier implements Querier
         {
             if (requestIDs.size() != 0 && (!requestIDs.contains(id) || this != id || !this.equals(id)))
             {
-                if (Options.check("mdns_verbose"))
+                if (mdnsVerbose)
                 {
                     System.out.println("!!!!! Exception Received for ID - " + id + ".");
                 }
@@ -157,7 +160,7 @@ public class MulticastDNSQuerier implements Querier
                 {
                     listener.handleException(this, exception);
                 }
-            } else if (Options.check("mdns_verbose"))
+            } else if (mdnsVerbose)
             {
                 String msg = "!!!!! Exception Disgarded ";
                 if (!(requestIDs.size() != 0 && (!requestIDs.contains(id) || this != id || !this.equals(id))))
@@ -377,6 +380,8 @@ public class MulticastDNSQuerier implements Querier
             resolverListenerDispatcher.handleException(id, e);
         }
     };
+
+    private boolean mdnsVerbose;
     
     
     /**
@@ -428,6 +433,8 @@ public class MulticastDNSQuerier implements Querier
     public MulticastDNSQuerier(boolean ipv4, boolean ipv6, Resolver[] unicastResolvers)
     throws IOException
     {
+        mdnsVerbose = Options.check("mdns_verbose");
+        
         if (unicastResolvers == null || unicastResolvers.length == 0)
         {
             this.unicastResolvers = new Resolver[] {new ExtendedResolver()};
@@ -452,7 +459,7 @@ public class MulticastDNSQuerier implements Querier
             {
                 ipv4Responder = null;
                 ipv4_exception = e;
-                if (Options.check("mdns_verbose"))
+                if (mdnsVerbose)
                 {
                     System.err.println("Error constructing IPv4 mDNS Responder - " + e.getMessage());
                     e.printStackTrace(System.err);
@@ -470,7 +477,7 @@ public class MulticastDNSQuerier implements Querier
             {
                 ipv6Responder = null;
                 ipv6_exception = e;
-                if (Options.check("mdns_verbose"))
+                if (mdnsVerbose)
                 {
                     System.err.println("Error constructing IPv6 mDNS Responder - " + e.getMessage());
                     e.printStackTrace(System.err);
@@ -519,6 +526,23 @@ public class MulticastDNSQuerier implements Querier
     public boolean isIPv6()
     {
         return ipv6;
+    }
+    
+    
+    /**
+     * {@inheritDoc}
+     */
+    public boolean isOperational()
+    {
+        for (Querier querier : this.multicastResponders)
+        {
+            if (!querier.isOperational())
+            {
+                return false;
+            }
+        }
+        
+        return true;
     }
     
     
@@ -776,7 +800,7 @@ public class MulticastDNSQuerier implements Querier
                 querier.close();
             } catch (Exception e)
             {
-                if (Options.check("mdns_verbose"))
+                if (mdnsVerbose)
                 {
                     System.err.println("Error closing Responder: " + e.getMessage());
                     e.printStackTrace(System.err);

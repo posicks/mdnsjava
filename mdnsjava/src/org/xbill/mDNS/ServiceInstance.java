@@ -116,13 +116,13 @@ public class ServiceInstance implements Serializable
 
     public InetAddress[] getAddresses()
     {
-        return addresses.size() == 0 ? null : (InetAddress[]) addresses.toArray(new InetAddress[addresses.size()]);
+        return addresses == null || addresses.size() == 0 ? null : (InetAddress[]) addresses.toArray(new InetAddress[addresses.size()]);
     }
 
 
-    public String[] getPointers()
+    public Name[] getPointers()
     {
-        return pointers.size() == 0 ? null : (String[]) pointers.toArray(new String[pointers.size()]);
+        return pointers == null || pointers.size() == 0 ? null : (Name[]) pointers.toArray(new Name[pointers.size()]);
     }
 
 
