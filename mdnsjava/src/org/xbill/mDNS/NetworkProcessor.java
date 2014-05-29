@@ -97,7 +97,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         {
             Thread t = new Thread(r, "Network Processor Scheduled Thread");
             t.setDaemon(true);
-            t.setPriority(Thread.MAX_PRIORITY - 1);
+            t.setPriority(Thread.NORM_PRIORITY + 2);
             t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
             return t;
         }
@@ -299,7 +299,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             {
                 Thread t = new Thread(r, "Network Queue Processing Thread");
                 t.setDaemon(false);
-                t.setPriority(Thread.MAX_PRIORITY - 1);
+                t.setPriority(Thread.NORM_PRIORITY + 2);
                 t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
                 return t;
             }
