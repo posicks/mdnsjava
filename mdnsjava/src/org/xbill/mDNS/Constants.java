@@ -71,8 +71,6 @@ public interface Constants
     
     /** The domain name used by DNS-Based Service Discovery (DNS-SD) [RFC 6763] to list default registration domains */
     public static final String DEFAULT_REGISTRATION_DOMAIN_NAME = "dr._dns-sd._udp";
-    
-    public static final int DEFAULT_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
 
     public static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.MAX_PRIORITY - 1;
 
@@ -84,6 +82,8 @@ public interface Constants
 
     /** The Cache Flush flag used in Multicast DNS (mDNS) [RFC 6762] query responses */
     public static final int CACHE_FLUSH = 0x8000;
+    
+    public static final int DEFAULT_THREAD_PRIORITY = Thread.NORM_PRIORITY + 1;
     
     
     public static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(0, new ThreadFactory()
