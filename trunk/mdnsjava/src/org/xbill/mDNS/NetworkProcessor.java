@@ -8,9 +8,7 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -90,37 +88,19 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             return port;
         }
     }
-    
-    protected ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
-    {
-        public Thread newThread(Runnable r)
-        {
-            Thread t = new Thread(r, "Network Processor Scheduled Thread");
-            t.setDaemon(true);
-            t.setPriority(Thread.NORM_PRIORITY + 2);
-            t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
-            return t;
-        }
-    });
 
     
     protected ThreadPoolExecutor processorExecutor = null;
     
     
-    protected static class PacketRunner implements Runnable
+    protected class PacketRunner implements Runnable
     {
-        private PacketListener dispatcher;
-        
         private Packet[] packets;
-
-        private boolean verboseLogging = false;
         
         
         protected PacketRunner(PacketListener dispatcher, Packet... packets)
         {
-            this.dispatcher = dispatcher;
             this.packets = packets;
-            this.verboseLogging = Options.check("mdns_verbose") || Options.check("mdns_packet_verbose");
         }
         
         
@@ -131,7 +111,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                 System.err.println("Running " + packets.length + " on a single thread");
             }
             
-            PacketListener dispatcher = this.dispatcher;
+            PacketListener dispatcher = listener;
             for (Packet packet : packets)
             {
                 try
@@ -139,16 +119,14 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                     if (verboseLogging)
                     {
                         double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                        System.out.println("ProcessingRunner took " + took + " milliseconds to start packet " + packet.id + ".");
-                        took = packet.timer.took(TimeUnit.MILLISECONDS);
-                        System.out.println("Processing packet " + packet.id + " took " + took + " to be executed by the PacketRunner.");
+                        System.out.println("NetworkProcessor took " + took + " milliseconds to start packet " + packet.id + ".");
                         ExecutionTimer._start();
-                        System.err.println("-----> Running Packet " + packet.id + " <-----");
+                        System.err.println("-----> Dispatching Packet " + packet.id + " <-----");
                     }
                     dispatcher.packetReceived(packet);
                     if (verboseLogging)
                     {
-                        System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " to be processed by dispatched to Listeners.");
+                        System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " milliseconds to be dispatched to Listeners.");
                     }
                 } catch (Throwable e)
                 {
@@ -262,6 +240,11 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
+/* TODO: Remove When done testing
+Options.set("mdns_cache_verbose");
+Options.set("cache_verbose");
+Options.set("mdns_network_verbose");
+Options.set("network_verbose");*/
         verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
                          Options.check("mdns_verbose") || Options.check("verbose");
         
@@ -277,7 +260,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         ipv6 = address.getAddress().length > 4;
         
         this.listener = listener;
-        scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        Constants.scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -299,7 +282,21 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             {
                 Thread t = new Thread(r, "Network Queue Processing Thread");
                 t.setDaemon(false);
-                t.setPriority(Thread.NORM_PRIORITY + 2);
+                
+                int threadPriority = Constants.DEFAULT_NETWORK_THREAD_PRIORITY;
+                try
+                {
+                    String value = Options.value("mdns_network_thread_priority");
+                    if (value == null || value.length() == 0)
+                    {
+                        value = Options.value("mdns_thread_priority");
+                    }
+                    threadPriority = Integer.parseInt(value);
+                } catch (Exception e)
+                {
+                    // ignore
+                }
+                t.setPriority(threadPriority);
                 t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
                 return t;
             }
@@ -337,9 +334,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     public boolean isOperational()
     {
-        return !exit && !processorExecutor.isShutdown() && 
-               !processorExecutor.isTerminated() && !processorExecutor.isTerminating() &&
-               !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated();
+        return !exit && !processorExecutor.isShutdown() && !processorExecutor.isTerminated() && !processorExecutor.isTerminating();
     }
 
 

@@ -825,7 +825,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
     }
     
     
-    protected ScheduledExecutorService scheduledExecutor = null;
+    protected ScheduledExecutorService discoveryScheduledExecutor = null;
 
     protected ArrayList<ServiceDiscoveryOperation> discoveryOperations = new ArrayList<ServiceDiscoveryOperation>();
     
@@ -870,14 +870,25 @@ public class MulticastDNSService extends MulticastDNSLookupBase
     public Object startServiceDiscovery(Browse browser, DNSSDListener listener)
     throws IOException
     {
-        if (scheduledExecutor == null || scheduledExecutor.isShutdown())
+        if (scheduledExecutor == null || scheduledExecutor.isShutdown() || scheduledExecutor.isTerminated())
         {
-            scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
+            discoveryScheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
             {
                 public Thread newThread(Runnable r)
                 {
                     Thread t = new Thread(r, "Service Discover Browser Thread");
                     t.setDaemon(true);
+                    
+                    int threadPriority = Constants.DEFAULT_THREAD_PRIORITY;
+                    try
+                    {
+                        threadPriority = Integer.parseInt(Options.value("mdns_thread_priority"));
+                    } catch (Exception e)
+                    {
+                        // ignore
+                    }
+                    t.setPriority(threadPriority);
+                    t.setContextClassLoader(this.getClass().getClassLoader());
                     return t;
                 }
             });

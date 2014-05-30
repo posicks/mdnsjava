@@ -11,9 +11,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Cache;
@@ -214,27 +211,20 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
-    private static class MonitorTask implements Runnable
+    private class MonitorTask implements Runnable
     {
         private boolean shutdown = false;
         
-        private MulticastDNSCache cache;
         
-        private boolean mdnsVerbose = false;
-        
-        
-        MonitorTask(MulticastDNSCache cache)
+        MonitorTask()
         {
-            this(cache, false);
+            this(false);
         }
         
         
-        MonitorTask(MulticastDNSCache cache, boolean shutdown)
+        MonitorTask(boolean shutdown)
         {
-            this.cache = cache;
             this.shutdown = false;
-            
-            mdnsVerbose = Options.check("mdns_verbose");
         }
         
         
@@ -242,7 +232,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         {
             try
             {
-                CacheMonitor cacheMonitor = cache.getCacheMonitor();
+                CacheMonitor cacheMonitor = getCacheMonitor();
                 if (cacheMonitor == null || shutdown)
                 {
                     return;
@@ -261,9 +251,9 @@ public class MulticastDNSCache extends Cache implements Closeable
                 }
                 
                 Object[] sets;
-                synchronized (cache)
+                synchronized (MulticastDNSCache.this)
                 {
-                    Collection values = cache.dataCopy.values();
+                    Collection values = MulticastDNSCache.this.dataCopy.values();
                     sets = values.toArray(new Object[values.size()]);
                 }
                 
@@ -276,17 +266,17 @@ public class MulticastDNSCache extends Cache implements Closeable
                         {
                             List list = (List) types;
                             Object[] elements;
-                            synchronized (cache)
+                            synchronized (MulticastDNSCache.this)
                             {
                                 elements = (Object[]) list.toArray(new Object[list.size()]);
                             }
                             for (int eIndex = 0; eIndex < elements.length; eIndex++)
                             {
-                                processElement(new ElementHelper(cache, elements[eIndex]));
+                                processElement(new ElementHelper(MulticastDNSCache.this, elements[eIndex]));
                             }
                         } else
                         {
-                            processElement(new ElementHelper(cache, types));
+                            processElement(new ElementHelper(MulticastDNSCache.this, types));
                         }
                     } catch (Exception e)
                     {
@@ -337,7 +327,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                         }
                     }
                     
-                    CacheMonitor cacheMonitor = cache.getCacheMonitor();
+                    CacheMonitor cacheMonitor = MulticastDNSCache.this.getCacheMonitor();
                     int expiresIn = element.getExpiresIn();
                     if (expiresIn <= 0 || rrs.getTTL() <= 0)
                     {
@@ -395,8 +385,6 @@ public class MulticastDNSCache extends Cache implements Closeable
     
     private CacheMonitor cacheMonitor = null;
     
-    private ScheduledExecutorService executor = null;
-    
     private LinkedHashMap dataCopy;
     
     private Field dataField = null;
@@ -407,7 +395,7 @@ public class MulticastDNSCache extends Cache implements Closeable
 
     private boolean mdnsVerbose;
     
-    
+
     /**
      * Creates an empty Cache
      * 
@@ -478,12 +466,6 @@ public class MulticastDNSCache extends Cache implements Closeable
     }
     
     
-    public boolean isOperational()
-    {
-        return executor != null && !executor.isShutdown() && !executor.isTerminated(); 
-    }
-    
-    
     /**
      * !!! Work around to access private methods in Cache superclass
      * !!! This method will be removed when the super class is made extensible (private members made protected)
@@ -498,7 +480,9 @@ public class MulticastDNSCache extends Cache implements Closeable
     protected void populateReflectedFields()
     throws NoSuchFieldException, NoSuchMethodException 
     {
-        mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
+        mdnsVerbose = Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose");
+        
+        Constants.scheduledExecutor.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
         
         Class clazz = getClass().getSuperclass();
         
@@ -553,31 +537,7 @@ public class MulticastDNSCache extends Cache implements Closeable
     {
         if (monitor != null)
         {
-            ScheduledExecutorService executor = this.executor;
-            if (executor != null)
-            {
-                executor.shutdown();
-            }
-            this.executor = executor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory()
-            {
-                public Thread newThread(Runnable r)
-                {
-                    Thread t = new Thread(r, "mDNSCache Monitor Thread");
-                    t.setDaemon(true);
-                    t.setPriority(Thread.MAX_PRIORITY - 1);
-                    return t;
-                }
-            });
             this.cacheMonitor = monitor;
-            executor.scheduleAtFixedRate(new MonitorTask(this), 1, 1, TimeUnit.SECONDS);
-        } else
-        {
-            ScheduledExecutorService executor = this.executor;
-            if (executor != null)
-            {
-                executor.shutdown();
-                this.executor = executor = null;
-            }
         }
     }
     
@@ -917,27 +877,10 @@ public class MulticastDNSCache extends Cache implements Closeable
     {
         if (this != DEFAULT_MDNS_CACHE)
         {
-            ScheduledExecutorService executor = this.executor;
-            if (executor != null)
-            {
-                executor.shutdown();
-                
-                while (!executor.isTerminated())
-                {
-                    try
-                    {
-                        Thread.sleep(0);
-                    } catch (InterruptedException e)
-                    {
-                        // ignore
-                    }
-                }
-            }
-            
             // Run final cache check, sending mDNS messages if needed
             if (cacheMonitor != null)
             {
-                MonitorTask task = new MonitorTask(this, true);
+                MonitorTask task = new MonitorTask(true);
                 task.run();
             }
         }

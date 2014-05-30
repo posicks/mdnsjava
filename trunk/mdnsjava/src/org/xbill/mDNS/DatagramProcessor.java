@@ -18,6 +18,8 @@ public class DatagramProcessor extends NetworkProcessor
     protected boolean isMulticast = false;
     
     protected DatagramSocket socket;
+
+    private long lastPacket;
     
     
     public DatagramProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
@@ -142,12 +144,13 @@ public class DatagramProcessor extends NetworkProcessor
     
     public boolean isOperational()
     {
-        return super.isOperational() && socket.isConnected();
+        return super.isOperational() && socket.isBound() && !socket.isClosed() && lastPacket <= System.currentTimeMillis() + 120000;
     }
     
     
     public void run()
     {
+        lastPacket = System.currentTimeMillis();
         while (!exit)
         {
             try
@@ -155,13 +158,13 @@ public class DatagramProcessor extends NetworkProcessor
                 byte[] buffer = new byte[this.mtu];
                 final DatagramPacket datagram = new DatagramPacket(buffer, buffer.length);
                 socket.receive(datagram);
+                lastPacket = System.currentTimeMillis();
                 if (datagram.getLength() > 0)
                 {
                     Packet packet = new Packet(datagram);
                     if (verboseLogging)
                     {
                         System.err.println("-----> Received packet " + packet.id + " <-----");
-                        packet.timer.start();
                         packet.timer.start();
                     }
                     processorExecutor.execute(new PacketRunner(listener, packet));
