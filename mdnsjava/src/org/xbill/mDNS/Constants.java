@@ -1,6 +1,11 @@
 package org.xbill.mDNS;
 
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadFactory;
+
 import org.xbill.DNS.Name;
+import org.xbill.DNS.Options;
 
 public interface Constants
 {
@@ -66,6 +71,10 @@ public interface Constants
     
     /** The domain name used by DNS-Based Service Discovery (DNS-SD) [RFC 6763] to list default registration domains */
     public static final String DEFAULT_REGISTRATION_DOMAIN_NAME = "dr._dns-sd._udp";
+    
+    public static final int DEFAULT_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
+
+    public static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.MAX_PRIORITY - 1;
 
     /** The domain name used by DNS-Based Service Discovery (DNS-SD) [RFC 6763] to list registration domains */
     public static final String REGISTRATION_DOMAIN_NAME = "r._dns-sd._udp";
@@ -75,4 +84,26 @@ public interface Constants
 
     /** The Cache Flush flag used in Multicast DNS (mDNS) [RFC 6762] query responses */
     public static final int CACHE_FLUSH = 0x8000;
+    
+    
+    public static final ScheduledExecutorService scheduledExecutor = Executors.newScheduledThreadPool(0, new ThreadFactory()
+    {
+        public Thread newThread(Runnable r)
+        {
+            Thread t = new Thread(r, "mDNS Scheduled Thread");
+            t.setDaemon(true);
+            
+            int threadPriority = Constants.DEFAULT_THREAD_PRIORITY;
+            try
+            {
+                threadPriority = Integer.parseInt(Options.value("mdns_thread_priority"));
+            } catch (Exception e)
+            {
+                // ignore
+            }
+            t.setPriority(threadPriority);
+            t.setContextClassLoader(this.getClass().getClassLoader());
+            return t;
+        }
+    });
 }

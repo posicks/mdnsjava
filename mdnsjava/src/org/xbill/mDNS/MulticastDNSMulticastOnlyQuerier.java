@@ -9,9 +9,6 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Cache;
@@ -269,18 +266,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     }
     
     
-    protected ScheduledExecutorService scheduledExecutor = Executors.newSingleThreadScheduledExecutor(new ThreadFactory()
-    {
-        public Thread newThread(Runnable r)
-        {
-            Thread t = new Thread(r, "mDNSResolver Scheduled Thread");
-            t.setDaemon(true);
-            t.setPriority(Thread.MAX_PRIORITY - 1);
-            t.setContextClassLoader(MulticastDNSMulticastOnlyQuerier.class.getClassLoader());
-            return t;
-        }
-    });
-    
     protected boolean mdnsVerbose = false;
 
     protected boolean cacheVerbose = false;
@@ -326,7 +311,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         private List nonauthRecords = new ArrayList();
         
-        private long lastPoll = -1;
+        private long lastPoll = System.currentTimeMillis();
         
         
         public void begin()
@@ -340,7 +325,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                 }
                 System.out.print(" Cache Monitor Check ");
             }
-            lastPoll = System.nanoTime();
+            lastPoll = System.currentTimeMillis();
             
             authRecords.clear();
             nonauthRecords.clear();
@@ -512,7 +497,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
         cacheVerbose = Options.check("mdns_cache_verbose") || Options.check("cache_verbose");
-        scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        Constants.scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -769,8 +754,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
         }
         
-        return cache.isOperational() && cacheMonitor.isOperational() && 
-               !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated();
+        return cacheMonitor.isOperational() && !Constants.scheduledExecutor.isShutdown() && !Constants.scheduledExecutor.isTerminated();
     }
     
     
@@ -794,50 +778,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         } else
         {
             return new Name[0];
-        }
-    }
-    
-    
-    /**
-     * {@inheritDoc}
-     */
-    public void broadcast(final Message message, boolean addKnownAnswers)
-    throws IOException
-    {
-        if (mdnsVerbose)
-        {
-            System.out.println("Broadcasting Query to " + multicastAddress.getHostAddress() + ":" + port);
-        }
-        
-        Header header = message.getHeader();
-        boolean isUpdate = header.getOpcode() == Opcode.UPDATE;
-        
-        if (isUpdate)
-        {
-            updateCache(MulticastDNSUtils.extractRecords(message, new int[] {Section.ZONE, Section.PREREQ, Section.UPDATE, Section.ADDITIONAL}), Credibility.AUTH_AUTHORITY);
-            writeMessageToWire(convertUpdateToQueryResponse(message));
-        } else if (addKnownAnswers)
-        {
-            Message knownAnswer = cache.queryCache(message, Credibility.ANY);
-            for (Integer section : new Integer[] {Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY})
-            {
-                Record[] records = knownAnswer.getSectionArray(section);
-                if (records != null && records.length > 0)
-                {
-                    for (Record record : records)
-                    {
-                        if (!message.findRecord(record))
-                        {
-                            message.addRecord(record, section);
-                        }
-                    }
-                }
-            }
-            
-            writeMessageToWire(message/*, true*/);
-        } else
-        {
-            writeMessageToWire(message/*, true*/);
         }
     }
     
@@ -891,6 +831,50 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     }
                 }
             }
+        }
+    }
+    
+    
+    /**
+     * {@inheritDoc}
+     */
+    public void broadcast(final Message message, boolean addKnownAnswers)
+    throws IOException
+    {
+        if (mdnsVerbose)
+        {
+            System.out.println("Broadcasting Query to " + multicastAddress.getHostAddress() + ":" + port);
+        }
+        
+        Header header = message.getHeader();
+        boolean isUpdate = header.getOpcode() == Opcode.UPDATE;
+        
+        if (isUpdate)
+        {
+            updateCache(MulticastDNSUtils.extractRecords(message, new int[] {Section.ZONE, Section.PREREQ, Section.UPDATE, Section.ADDITIONAL}), Credibility.AUTH_AUTHORITY);
+            writeMessageToWire(convertUpdateToQueryResponse(message));
+        } else if (addKnownAnswers)
+        {
+            Message knownAnswer = cache.queryCache(message, Credibility.ANY);
+            for (Integer section : new Integer[] {Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY})
+            {
+                Record[] records = knownAnswer.getSectionArray(section);
+                if (records != null && records.length > 0)
+                {
+                    for (Record record : records)
+                    {
+                        if (!message.findRecord(record))
+                        {
+                            message.addRecord(record, section);
+                        }
+                    }
+                }
+            }
+            
+            writeMessageToWire(message/*, true*/);
+        } else
+        {
+            writeMessageToWire(message/*, true*/);
         }
     }
 
@@ -1177,7 +1161,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     final Message message = cache.queryCache(query, Credibility.ANY);
                     if (message != null && message.getRcode() == Rcode.NOERROR && MulticastDNSUtils.answersAll(query, message))
                     {
-                        scheduledExecutor.execute(new Runnable()
+                        Constants.scheduledExecutor.execute(new Runnable()
                         {
                             public void run()
                             {
@@ -1188,7 +1172,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     
                     int wait = Options.intValue("mdns_resolve_wait");
                     long timeOut = wait >= 0 ? wait : 1000;
-                    scheduledExecutor.schedule(new Runnable()
+                    Constants.scheduledExecutor.schedule(new Runnable()
                     {
                         public void run()
                         {
@@ -1265,18 +1249,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     System.err.println("Error closing multicastProcessor - " + e.getMessage());
                     e.printStackTrace(System.err);
                 }
-            }
-        }
-        
-        try
-        {
-            scheduledExecutor.shutdownNow();
-        } catch (Exception e)
-        {
-            if (mdnsVerbose)
-            {
-                System.err.println("Error shutting down scheduled executor - " + e.getMessage());
-                e.printStackTrace(System.err);
             }
         }
         

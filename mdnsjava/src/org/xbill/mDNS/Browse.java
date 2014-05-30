@@ -3,9 +3,7 @@ package org.xbill.mDNS;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.DClass;
@@ -22,7 +20,7 @@ import org.xbill.DNS.Type;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
-    protected static ScheduledExecutorService defaultScheduledExecutor = null;
+    protected static ScheduledExecutorService defaultScheduledExecutor = Constants.scheduledExecutor;
     
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
@@ -185,10 +183,8 @@ public class Browse extends MulticastDNSLookupBase
     }
     
     protected List browseOperations = new LinkedList();
-
-    protected ScheduledExecutorService scheduledExecutor;
-
-    private boolean selfCreatedScheduler = true;
+    
+    protected ScheduledExecutorService scheduledExecutor = Constants.scheduledExecutor;
    
 
     protected Browse()
@@ -261,7 +257,9 @@ public class Browse extends MulticastDNSLookupBase
         if (scheduledExecutor != null)
         {
             this.scheduledExecutor = scheduledExecutor;
-            this.selfCreatedScheduler = false;
+        } else
+        {
+            this.scheduledExecutor = Constants.scheduledExecutor;
         }
     }
 
@@ -290,26 +288,6 @@ public class Browse extends MulticastDNSLookupBase
             throw new NullPointerException("Error sending asynchronous query, No queries specified!");
         }
         
-        if (scheduledExecutor == null)
-        {
-            if (defaultScheduledExecutor == null)
-            {
-                scheduledExecutor = Executors.newScheduledThreadPool(1, new ThreadFactory()
-                {
-                    public Thread newThread(Runnable r)
-                    {
-                        Thread t = new Thread(r, "mDNSResolver Scheduled Thread");
-                        t.setDaemon(true);
-                        return t;
-                    }
-                });
-                selfCreatedScheduler = true;
-            } else
-            {
-                setScheduledExecutor(defaultScheduledExecutor);
-            }
-        }
-        
         BrowseOperation browseOperation = new BrowseOperation(listener);
         browseOperations.add(browseOperation);
         querier.registerListener(browseOperation);
@@ -321,17 +299,6 @@ public class Browse extends MulticastDNSLookupBase
     public void close()
     throws IOException
     {
-        if (selfCreatedScheduler )
-        {
-            try
-            {
-                scheduledExecutor.shutdown();
-            } catch (Exception e)
-            {
-                // ignore
-            }
-        }
-        
         for (Object o : browseOperations)
         {
             BrowseOperation browseOperation = (BrowseOperation) o;
