@@ -20,7 +20,7 @@ import org.xbill.DNS.Type;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
-    protected static ScheduledExecutorService defaultScheduledExecutor = Constants.scheduledExecutor;
+    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.scheduledExecutor;
     
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
@@ -184,7 +184,7 @@ public class Browse extends MulticastDNSLookupBase
     
     protected List browseOperations = new LinkedList();
     
-    protected ScheduledExecutorService scheduledExecutor = Constants.scheduledExecutor;
+    protected ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
    
 
     protected Browse()
@@ -259,7 +259,7 @@ public class Browse extends MulticastDNSLookupBase
             this.scheduledExecutor = scheduledExecutor;
         } else
         {
-            this.scheduledExecutor = Constants.scheduledExecutor;
+            this.scheduledExecutor = defaultScheduledExecutor;
         }
     }
 
@@ -309,6 +309,11 @@ public class Browse extends MulticastDNSLookupBase
             {
                 // ignore
             }
+        }
+        
+        if (scheduledExecutor != null && scheduledExecutor != defaultScheduledExecutor)
+        {
+            scheduledExecutor.shutdownNow();
         }
     }
 }

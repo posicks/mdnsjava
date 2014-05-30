@@ -497,7 +497,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
         cacheVerbose = Options.check("mdns_cache_verbose") || Options.check("cache_verbose");
-        Constants.scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        Executors.scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -754,7 +754,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
         }
         
-        return cacheMonitor.isOperational() && !Constants.scheduledExecutor.isShutdown() && !Constants.scheduledExecutor.isTerminated();
+        return cacheMonitor.isOperational() && !Executors.isScheduledExecutorOperational() && !Executors.isExecutorOperational();
     }
     
     
@@ -1161,7 +1161,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     final Message message = cache.queryCache(query, Credibility.ANY);
                     if (message != null && message.getRcode() == Rcode.NOERROR && MulticastDNSUtils.answersAll(query, message))
                     {
-                        Constants.scheduledExecutor.execute(new Runnable()
+                        Executors.executor.execute(new Runnable()
                         {
                             public void run()
                             {
@@ -1172,7 +1172,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     
                     int wait = Options.intValue("mdns_resolve_wait");
                     long timeOut = wait >= 0 ? wait : 1000;
-                    Constants.scheduledExecutor.schedule(new Runnable()
+                    Executors.scheduledExecutor.schedule(new Runnable()
                     {
                         public void run()
                         {

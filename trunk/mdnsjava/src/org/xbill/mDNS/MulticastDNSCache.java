@@ -482,7 +482,7 @@ public class MulticastDNSCache extends Cache implements Closeable
     {
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose");
         
-        Constants.scheduledExecutor.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
+        Executors.scheduledExecutor.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
         
         Class clazz = getClass().getSuperclass();
         
