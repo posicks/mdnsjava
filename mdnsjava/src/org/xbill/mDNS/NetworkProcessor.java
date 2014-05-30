@@ -8,8 +8,6 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -23,10 +21,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public static final int AVERAGE_QUEUE_THRESHOLD = 2;
 
     public static final int MAX_QUEUE_THRESHOLD = 10;
-
-    private static final int CORE_PROCESSOR_THREAD = 5;
-
-    private static final int MAX_PROCESSOR_THREAD = 10;
     
     
     protected static interface PacketListener
@@ -108,7 +102,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         {
             if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
             {
-                System.err.println("Running " + packets.length + " on a single thread");
+                System.out.println("Running " + packets.length + " on a single thread");
             }
             
             PacketListener dispatcher = listener;
@@ -119,14 +113,14 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                     if (verboseLogging)
                     {
                         double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                        System.out.println("NetworkProcessor took " + took + " milliseconds to start packet " + packet.id + ".");
+                        System.err.println("NetworkProcessor took " + took + " milliseconds to start packet " + packet.id + ".");
                         ExecutionTimer._start();
                         System.err.println("-----> Dispatching Packet " + packet.id + " <-----");
                     }
                     dispatcher.packetReceived(packet);
                     if (verboseLogging)
                     {
-                        System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " milliseconds to be dispatched to Listeners.");
+                        System.err.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " milliseconds to be dispatched to Listeners.");
                     }
                 } catch (Throwable e)
                 {
@@ -240,11 +234,11 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
     throws IOException
     {
-/* TODO: Remove When done testing
+/* TODO: Remove When done testing 
 Options.set("mdns_cache_verbose");
 Options.set("cache_verbose");
 Options.set("mdns_network_verbose");
-Options.set("network_verbose");*/
+Options.set("network_verbose"); */
         verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
                          Options.check("mdns_verbose") || Options.check("verbose");
         
@@ -260,7 +254,7 @@ Options.set("network_verbose");*/
         ipv6 = address.getAddress().length > 4;
         
         this.listener = listener;
-        Constants.scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        Executors.scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -275,33 +269,7 @@ Options.set("network_verbose");*/
     {
         exit = false;
         
-        processorExecutor = new ThreadPoolExecutor(CORE_PROCESSOR_THREAD, MAX_PROCESSOR_THREAD, 0L, TimeUnit.MILLISECONDS,
-        new LinkedBlockingQueue<Runnable>(), new ThreadFactory()
-        {
-            public Thread newThread(Runnable r)
-            {
-                Thread t = new Thread(r, "Network Queue Processing Thread");
-                t.setDaemon(false);
-                
-                int threadPriority = Constants.DEFAULT_NETWORK_THREAD_PRIORITY;
-                try
-                {
-                    String value = Options.value("mdns_network_thread_priority");
-                    if (value == null || value.length() == 0)
-                    {
-                        value = Options.value("mdns_thread_priority");
-                    }
-                    threadPriority = Integer.parseInt(value);
-                } catch (Exception e)
-                {
-                    // ignore
-                }
-                t.setPriority(threadPriority);
-                t.setContextClassLoader(NetworkProcessor.class.getClassLoader());
-                return t;
-            }
-        });
-        
+        processorExecutor = Executors.networkExecutor;
 //        processorExecutor.execute(new QueueRunner(/*, queueChecker*/));
         processorExecutor.execute(this);
     }
@@ -311,14 +279,6 @@ Options.set("network_verbose");*/
     throws IOException
     {
         exit = true;
-        processorExecutor.shutdownNow();
-        try
-        {
-            processorExecutor.awaitTermination(10, TimeUnit.SECONDS);
-        } catch (InterruptedException e)
-        {
-            System.err.println("Timeout occured while awaiting the Network Processor Executor to shutdown.");
-        }
     }
     
     
