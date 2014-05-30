@@ -754,7 +754,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
         }
         
-        return cacheMonitor.isOperational() && !Executors.isScheduledExecutorOperational() && !Executors.isExecutorOperational();
+        return cacheMonitor.isOperational() && Executors.isScheduledExecutorOperational() && Executors.isExecutorOperational();
     }
     
     
