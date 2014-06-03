@@ -1,6 +1,6 @@
 <project name="mdnsjava" default="all" basedir=".">
     <property name="build_dir" value="${basedir}/classes"/>
-    <property name="src_dir" value="${basedir}/src"/>
+    <property name="src_dir" value="${basedir}/src/main/java"/>
     <property name="lib_dir" value="${basedir}/lib"/>
     <property name="doc_dir" value="${basedir}/doc"/>
     <property name="dist_dir" value="${basedir}"/>
