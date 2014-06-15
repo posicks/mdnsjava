@@ -18,17 +18,11 @@
     </target>
 
     <target name="compile" description="Compile everything">
+	<mkdir dir="${build_dir}"/>
 	<javac destdir="${build_dir}" debug="true" target="1.5" source="1.5" includeantruntime="false">
 	    <src path="${src_dir}"/>
 		<include name="${lib_dir}/*.jar" />
 	    <exclude name="tests/**"/>
-	</javac>
-    </target>
-
-    <target name="spi" description="Compile the Name Service Provider code">
-	<javac destdir="${build_dir}" debug="true" target="1.5" source="1.5">
-	    <src path="${src_dir}"/>
-	    <include name="org/xbill/DNS/spi/*.java"/>
 	</javac>
     </target>
 
@@ -75,7 +69,7 @@
     <target name="docs" description="Makes Javadoc documentation">
 	<javadoc destdir="${doc_dir}"
 		 sourcepath="${src_dir}"
-		 packagenames="org.xbill.DNS,org.xbill.DNS.utils,org.xbill.DNS.spi"
+		 packagenames="org.xbill.mDNS,org.xbill.mDNS.utils"
 		 windowtitle="mdnsjava documentation">
 
 	    <link href="${j2se.javadoc}"/>
