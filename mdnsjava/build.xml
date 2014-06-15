@@ -14,14 +14,18 @@
     <property name="j2se.javadoc"
       value="http://docs.oracle.com/javase/1.5.0/docs/api/"/>
 
-    <target name="all" description="Compile and Jar" depends="jar">
+    <target name="all" description="Compile and Jar" depends="bundle">
     </target>
 
     <target name="compile" description="Compile everything">
 	<mkdir dir="${build_dir}"/>
 	<javac destdir="${build_dir}" debug="true" target="1.5" source="1.5" includeantruntime="false">
 	    <src path="${src_dir}"/>
-		<include name="${lib_dir}/*.jar" />
+		<classpath>
+			<fileset dir="${lib_dir}">
+				<include name="*.jar"/>
+			</fileset>
+		</classpath>
 	    <exclude name="tests/**"/>
 	</javac>
     </target>
