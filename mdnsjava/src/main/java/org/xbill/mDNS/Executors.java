@@ -14,7 +14,7 @@ public class Executors
     static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
     
     static final int CORE_THREADS_NETWORK_EXECUTOR = 5;
-
+    
     static final int MAX_THREADS_NETWORK_EXECUTOR = Integer.MAX_VALUE;
     
     static final int TTL_THREADS_NETWORK_EXECUTOR = 10000;
@@ -24,7 +24,7 @@ public class Executors
     static final int DEFAULT_CACHED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
     
     static final int CORE_THREADS_CACHED_EXECUTOR = 1;
-
+    
     static final int MAX_THREADS_CACHED_EXECUTOR = Integer.MAX_VALUE;
     
     static final int TTL_THREADS_CACHED_EXECUTOR = 10000;
@@ -34,7 +34,7 @@ public class Executors
     static final int DEFAULT_SCHEDULED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
     
     static final int CORE_THREADS_SCHEDULED_EXECUTOR = 5;
-
+    
     static final int MAX_THREADS_SCHEDULED_EXECUTOR = Integer.MAX_VALUE;
     
     static final int TTL_THREADS_SCHEDULED_EXECUTOR = 10000;
@@ -44,14 +44,14 @@ public class Executors
     static final ScheduledThreadPoolExecutor scheduledExecutor;
     
     static final ThreadPoolExecutor executor;
-
+    
     static final ThreadPoolExecutor networkExecutor;
     
     static
     {
         scheduledExecutor = (ScheduledThreadPoolExecutor) java.util.concurrent.Executors.newScheduledThreadPool(CORE_THREADS_SCHEDULED_EXECUTOR, new ThreadFactory()
         {
-            public Thread newThread(Runnable r)
+            public Thread newThread(final Runnable r)
             {
                 Thread t = new Thread(r, "mDNS Scheduled Thread");
                 t.setDaemon(true);
@@ -60,11 +60,11 @@ public class Executors
                 try
                 {
                     String value = Options.value("mdns_scheduled_thread_priority");
-                    if (value == null || value.length() == 0)
+                    if ((value == null) || (value.length() == 0))
                     {
                         value = Options.value("mdns_thread_priority");
                     }
-                    if (value != null && value.length() == 0)
+                    if ((value != null) && (value.length() == 0))
                     {
                         threadPriority = Integer.parseInt(value);
                     }
@@ -86,11 +86,11 @@ public class Executors
         try
         {
             String value = Options.value("mdns_cached_thread_queue_size");
-            if (value == null || value.length() == 0)
+            if ((value == null) || (value.length() == 0))
             {
                 value = Options.value("mdns_thread_queue_size");
             }
-            if (value != null && value.length() > 0)
+            if ((value != null) && (value.length() > 0))
             {
                 cacheExecutorQueueSize = Integer.parseInt(value);
             }
@@ -99,12 +99,12 @@ public class Executors
             // ignore
         }
         
-        executor = new ThreadPoolExecutor(CORE_THREADS_CACHED_EXECUTOR, MAX_THREADS_CACHED_EXECUTOR, 
-                                          TTL_THREADS_CACHED_EXECUTOR, THREAD_TTL_TIME_UNIT,
-                                          new ArrayBlockingQueue<Runnable>(cacheExecutorQueueSize),
-                                          new ThreadFactory()
+        executor = new ThreadPoolExecutor(CORE_THREADS_CACHED_EXECUTOR, MAX_THREADS_CACHED_EXECUTOR,
+        TTL_THREADS_CACHED_EXECUTOR, THREAD_TTL_TIME_UNIT,
+        new ArrayBlockingQueue<Runnable>(cacheExecutorQueueSize),
+        new ThreadFactory()
         {
-            public Thread newThread(Runnable r)
+            public Thread newThread(final Runnable r)
             {
                 Thread t = new Thread(r, "mDNS Cached Thread");
                 t.setDaemon(true);
@@ -113,11 +113,11 @@ public class Executors
                 try
                 {
                     String value = Options.value("mdns_cached_thread_priority");
-                    if (value == null || value.length() == 0)
+                    if ((value == null) || (value.length() == 0))
                     {
                         value = Options.value("mdns_thread_priority");
                     }
-                    if (value != null && value.length() == 0)
+                    if ((value != null) && (value.length() == 0))
                     {
                         threadPriority = Integer.parseInt(value);
                     }
@@ -131,7 +131,7 @@ public class Executors
             }
         }, new RejectedExecutionHandler()
         {
-            public void rejectedExecution(Runnable r, ThreadPoolExecutor executor)
+            public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor)
             {
                 System.err.println("Network Processing Queue Rejected Packet it is FULL. [size: " + executor.getQueue().size() + "]");
             }
@@ -145,11 +145,11 @@ public class Executors
         try
         {
             String value = Options.value("mdns_cached_thread_queue_size");
-            if (value == null || value.length() == 0)
+            if ((value == null) || (value.length() == 0))
             {
                 value = Options.value("mdns_thread_queue_size");
             }
-            if (value != null && value.length() > 0)
+            if ((value != null) && (value.length() > 0))
             {
                 try
                 {
@@ -163,12 +163,12 @@ public class Executors
             // ignore
         }
         
-        networkExecutor = new ThreadPoolExecutor(CORE_THREADS_CACHED_EXECUTOR, MAX_THREADS_CACHED_EXECUTOR, 
-                                                 TTL_THREADS_CACHED_EXECUTOR, THREAD_TTL_TIME_UNIT,
-                                                 new ArrayBlockingQueue<Runnable>(networkExecutorQueueSize),
-                                                 new ThreadFactory()
+        networkExecutor = new ThreadPoolExecutor(CORE_THREADS_CACHED_EXECUTOR, MAX_THREADS_CACHED_EXECUTOR,
+        TTL_THREADS_CACHED_EXECUTOR, THREAD_TTL_TIME_UNIT,
+        new ArrayBlockingQueue<Runnable>(networkExecutorQueueSize),
+        new ThreadFactory()
         {
-            public Thread newThread(Runnable r)
+            public Thread newThread(final Runnable r)
             {
                 Thread t = new Thread(r, "Network Queue Processing Thread");
                 t.setDaemon(true);
@@ -177,11 +177,11 @@ public class Executors
                 try
                 {
                     String value = Options.value("mdns_network_thread_priority");
-                    if (value == null || value.length() == 0)
+                    if ((value == null) || (value.length() == 0))
                     {
                         value = Options.value("mdns_thread_priority");
                     }
-                    if (value != null && value.length() == 0)
+                    if ((value != null) && (value.length() == 0))
                     {
                         threadPriority = Integer.parseInt(value);
                     }
@@ -195,16 +195,18 @@ public class Executors
                 return t;
             }
         });
+        networkExecutor.setRejectedExecutionHandler(new RejectedExecutionHandler()
+        {
+            public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor)
+            {
+                Thread t = executor.getThreadFactory().newThread(r);
+                t.start();
+            }
+        });
         networkExecutor.setCorePoolSize(CORE_THREADS_NETWORK_EXECUTOR);
         networkExecutor.setMaximumPoolSize(MAX_THREADS_NETWORK_EXECUTOR);
         networkExecutor.setKeepAliveTime(TTL_THREADS_NETWORK_EXECUTOR, THREAD_TTL_TIME_UNIT);
         networkExecutor.allowCoreThreadTimeOut(true);
-    }
-    
-    
-    public static boolean isScheduledExecutorOperational()
-    {
-        return !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated() && !scheduledExecutor.isTerminating();
     }
     
     
@@ -217,5 +219,11 @@ public class Executors
     public static boolean isNetworkExecutorOperational()
     {
         return !networkExecutor.isShutdown() && !networkExecutor.isTerminated() && !networkExecutor.isTerminating();
+    }
+    
+    
+    public static boolean isScheduledExecutorOperational()
+    {
+        return !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated() && !scheduledExecutor.isTerminating();
     }
 }

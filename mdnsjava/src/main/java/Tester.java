@@ -14,14 +14,14 @@ public class Tester
     /**
      * @param args
      */
-    public static void main(String[] args)
+    public static void main(final String[] args)
     {
         int priority = 10;
         int weight = 10;
         int port = 8080;
         String ucn = "urn:smpte:ucn:org.smpte.st2071:device_v1.0";
         String ucnPTRName = "_org.smpte.st2071:device_v1.0._sub._mdc._tcp";
-//        String ucnPTRName = "_mdc._tcp";
+        //        String ucnPTRName = "_mdc._tcp";
         String domain = "local.";
         String hostname = "TestHost";
         
@@ -32,7 +32,7 @@ public class Tester
             Name fqn = new Name(hostname + "." + (domain.endsWith(".") ? domain : domain + "."));
             ServiceName srvName = new ServiceName(hostname + "." + ucnPTRName + "." + (domain.endsWith(".") ? domain : domain + "."));
             
-            ServiceInstance serviceInstance = new ServiceInstance(srvName, priority, weight, port, fqn, new InetAddress[] {InetAddress.getByName("192.168.1.74")}, "textvers=1", "rn=urn:smpte:udn:local:id=1234567890ABCDEF", "proto=mdcp", "path=/Device"); 
+            ServiceInstance serviceInstance = new ServiceInstance(srvName, priority, weight, port, fqn, new InetAddress[] {InetAddress.getByName("192.168.1.74")}, "textvers=1", "rn=urn:smpte:udn:local:id=1234567890ABCDEF", "proto=mdcp", "path=/Device");
             ServiceInstance registeredService = service.register(serviceInstance);
             if (registeredService != null)
             {
@@ -43,27 +43,27 @@ public class Tester
                 
                 Lookup lookup = new Lookup(fqn);
                 Record[] rrs = lookup.lookupRecords();
-                if (rrs != null && rrs.length > 0)
+                if ((rrs != null) && (rrs.length > 0))
                 {
                     outer:
-                    for (Record rr : rrs)
-                    {
-                        switch (rr.getType())
+                        for (Record rr : rrs)
                         {
-                            case Type.A:
-                            case Type.A6:
-                            case Type.AAAA:
-                            case Type.DNAME:
-                            case Type.CNAME:
-                            case Type.PTR:
-                                if (rr.getName().equals(fqn))
-                                {
-                                    hostnameResolves = true;
-                                    break outer;
-                                }
-                                break;
+                            switch (rr.getType())
+                            {
+                                case Type.A:
+                                case Type.A6:
+                                case Type.AAAA:
+                                case Type.DNAME:
+                                case Type.CNAME:
+                                case Type.PTR:
+                                    if (rr.getName().equals(fqn))
+                                    {
+                                        hostnameResolves = true;
+                                        break outer;
+                                    }
+                                    break;
+                            }
                         }
-                    }
                 }
                 
                 System.err.println("Services Registration for UCN \"" + ucn + "\" in domain \"" + domain + "\" Failed!");

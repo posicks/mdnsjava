@@ -26,42 +26,48 @@ public class Lookup extends MulticastDNSLookupBase
 {
     public static class Domain
     {
-        private Name name;
+        private final Name name;
         
         private boolean isDefault;
         
         private boolean isLegacy;
         
         
-        protected Domain(Name name)
+        protected Domain(final boolean isDefault, final boolean isLegacy, final Name name)
+        {
+            this.name = name;
+            this.isDefault = isDefault;
+            this.isLegacy = isLegacy;
+        }
+        
+        
+        protected Domain(final Name name)
         {
             this(false, false, name);
         }
         
         
-        protected Domain(boolean isDefault, boolean isLegacy, Name name)
+        @Override
+        public boolean equals(final Object obj)
         {
-            this.name = name;
-            this.isDefault = isDefault; 
-            this.isLegacy = isLegacy;
+            if (obj == this)
+            {
+                return true;
+            } else if (name == obj)
+            {
+                return true;
+            } else if (obj instanceof Domain)
+            {
+                return name.equals(((Domain) obj).name);
+            }
+            
+            return false;
         }
-
-
+        
+        
         public Name getName()
         {
             return name;
-        }
-
-
-        public boolean isDefault()
-        {
-            return isDefault;
-        }
-
-
-        public boolean isLegacy()
-        {
-            return isLegacy;
         }
         
         
@@ -72,37 +78,74 @@ public class Lookup extends MulticastDNSLookupBase
         }
         
         
-        @Override
-        public boolean equals(Object obj)
+        public boolean isDefault()
         {
-            if (obj == this)
-            {
-                return true;
-            } else if (this.name == obj)
-            {
-                return true;
-            } else if (obj instanceof Domain)
-            {
-                return name.equals(((Domain) obj).name);
-            }
-            
-            return false;
+            return isDefault;
         }
-
-
+        
+        
+        public boolean isLegacy()
+        {
+            return isLegacy;
+        }
+        
+        
         @Override
         public String toString()
         {
-            return name + (isDefault ? "  [default]" : "") + (isLegacy ? "  [legacy]" : ""); 
+            return name + (isDefault ? "  [default]" : "") + (isLegacy ? "  [legacy]" : "");
         }
     }
     
     
     public interface RecordListener
     {
-        public void receiveRecord(Object id, Record r);
-        
         public void handleException(Object id, Exception e);
+        
+        
+        public void receiveRecord(Object id, Record r);
+    }
+    
+    
+    public Lookup(final Name... names)
+    throws IOException
+    {
+        super(names);
+    }
+    
+    
+    public Lookup(final Name[] names, final int type)
+    throws IOException
+    {
+        super(names, type);
+    }
+    
+    
+    public Lookup(final Name[] names, final int type, final int dclass)
+    throws IOException
+    {
+        super(names, type, dclass);
+    }
+    
+    
+    public Lookup(final String... names)
+    throws IOException
+    {
+        super(names);
+    }
+    
+    
+    public Lookup(final String[] names, final int type)
+    throws IOException
+    {
+        super(names, type);
+    }
+    
+    
+    public Lookup(final String[] names, final int type, final int dclass)
+    throws IOException
+    {
+        super(names, type, dclass);
     }
     
     
@@ -113,148 +156,18 @@ public class Lookup extends MulticastDNSLookupBase
     }
     
     
-    public Lookup(Name... names)
-    throws IOException
-    {
-        super(names);
-    }
-    
-    
-    public Lookup(Name[] names, int type)
-    throws IOException
-    {
-        super(names, type);
-    }
-    
-    
-    public Lookup(Name[] names, int type, int dclass)
-    throws IOException
-    {
-        super(names, type, dclass);
-    }
-    
-    
-    protected Lookup(Message message)
+    protected Lookup(final Message message)
     throws IOException
     {
         super(message);
     }
     
     
-    public Lookup(String... names)
+    public void close()
     throws IOException
     {
-        super(names);
     }
     
-    
-    public Lookup(String[] names, int type)
-    throws IOException
-    {
-        super(names, type);
-    }
-    
-    
-    public Lookup(String[] names, int type, int dclass)
-    throws IOException
-    {
-        super(names, type, dclass);
-    }
-    
-    
-    public void lookupRecordsAsync(final RecordListener listener)
-    throws IOException
-    {
-        for (Message query : queries)
-        {
-            getQuerier().sendAsync(query, new ResolverListener()
-            {
-                public void receiveMessage(Object id, Message m)
-                {
-                    Record[] records = MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY);
-                    for (Record r : records)
-                    {
-                        listener.receiveRecord(id, r);
-                    }
-                }
-                
-                
-                public void handleException(Object id, Exception e)
-                {
-                    listener.handleException(id, e);
-                }
-            });
-        }
-    }
-    
-    
-    public Record[] lookupRecords()
-    throws IOException
-    {
-        final List ids = new ArrayList();
-        final List messages = new ArrayList();
-        final List exceptions = new ArrayList();
-        
-        final Querier querier = getQuerier();
-        for (Message query : queries)
-        {
-            ids.add(querier.sendAsync(query, new ResolverListener()
-            {
-                public void receiveMessage(Object id, Message m)
-                {
-                    messages.add(m);
-                }
-                
-                
-                public void handleException(Object id, Exception e)
-                {
-                    exceptions.add(e);
-                }
-            }));
-        }
-        
-        int wait = Options.intValue("mdns_resolve_wait");
-        long timeOut = wait >= 0 ? wait : 1000;
-        long now;
-        long end = timeOut + (now = System.currentTimeMillis());
-        while ((now = System.currentTimeMillis()) < end)
-        {
-            try
-            {
-                Thread.sleep(end - now);
-            } catch (InterruptedException e)
-            {
-                // ignore
-            }
-        }
-        
-        List records = new ArrayList();
-        
-        for (Object o : messages)
-        {
-            Message m = (Message) o;
-            switch (m.getRcode())
-            {
-                case Rcode.NOERROR :
-                    records.addAll(Arrays.asList(MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL)));
-                    break;
-                case Rcode.NXDOMAIN :
-                    break;
-            }
-        }
-        
-        return (Record[]) records.toArray(new Record[records.size()]);
-    }
-    
-    
-    public ServiceInstance[] lookupServices()
-    throws IOException
-    {
-        final List results = new ArrayList();
-        results.addAll(Arrays.asList(extractServiceInstances(lookupRecords())));
-        return (ServiceInstance[]) results.toArray(new ServiceInstance[results.size()]);
-    }
-
     
     public Domain[] lookupDomains()
     throws IOException
@@ -263,31 +176,37 @@ public class Lookup extends MulticastDNSLookupBase
         final List exceptions = Collections.synchronizedList(new LinkedList());
         List resolvers = new LinkedList();
         
-        if (names != null && names.length > 0)
+        if ((names != null) && (names.length > 0))
         {
             for (final Name name : names)
             {
-                Lookup lookup = new Lookup(new Name[]{name}, Type.PTR, DClass.ANY);
+                Lookup lookup = new Lookup(new Name[] {name}, Type.PTR, DClass.ANY);
                 resolvers.add(lookup);
                 
                 /*
-                Name[] defaultBrowseDomains = lookup.getQuerier().getMulticastDomains();
-                if (defaultBrowseDomains != null && defaultBrowseDomains.length > 0)
-                {
-                    for (int index = 0; index < defaultBrowseDomains.length; index++)
-                    {
-                        Domain d = new Domain(false, false, defaultBrowseDomains[index]);
-                        if (!domains.contains(d))
-                        {
-                            domains.add(d);
-                        }
-                    }
-                }
-                */
+                 * Name[] defaultBrowseDomains = lookup.getQuerier().getMulticastDomains();
+                 * if (defaultBrowseDomains != null && defaultBrowseDomains.length > 0)
+                 * {
+                 * for (int index = 0; index < defaultBrowseDomains.length; index++)
+                 * {
+                 * Domain d = new Domain(false, false, defaultBrowseDomains[index]);
+                 * if (!domains.contains(d))
+                 * {
+                 * domains.add(d);
+                 * }
+                 * }
+                 * }
+                 */
                 
                 lookup.lookupRecordsAsync(new RecordListener()
                 {
-                    public void receiveRecord(Object id, Record record)
+                    public void handleException(final Object id, final Exception e)
+                    {
+                        exceptions.add(e);
+                    }
+                    
+                    
+                    public void receiveRecord(final Object id, final Record record)
                     {
                         if (record.getTTL() > 0)
                         {
@@ -314,10 +233,10 @@ public class Lookup extends MulticastDNSLookupBase
                                     
                                     switch (name.toString().charAt(0))
                                     {
-                                        case 'd' :
+                                        case 'd':
                                             domain.isDefault = true;
                                             break;
-                                        case 'l' :
+                                        case 'l':
                                             domain.isLegacy = true;
                                             break;
                                     }
@@ -328,12 +247,6 @@ public class Lookup extends MulticastDNSLookupBase
                             }
                         }
                     }
-                    
-                    
-                    public void handleException(Object id, Exception e)
-                    {
-                        exceptions.add(e);
-                    }
                 });
             }
             
@@ -341,7 +254,7 @@ public class Lookup extends MulticastDNSLookupBase
             {
                 int wait = Options.intValue("mdns_resolve_wait");
                 long waitTill = System.currentTimeMillis() + (wait > 0 ? wait : Querier.DEFAULT_RESPONSE_WAIT_TIME);
-                while (domains.size() == 0 && System.currentTimeMillis() < waitTill)
+                while ((domains.size() == 0) && (System.currentTimeMillis() < waitTill))
                 {
                     try
                     {
@@ -359,13 +272,101 @@ public class Lookup extends MulticastDNSLookupBase
                 c.close();
             }
         }
-            
+        
         return (Domain[]) domains.toArray(new Domain[domains.size()]);
     }
     
     
-    public void close()
+    public Record[] lookupRecords()
     throws IOException
     {
+        final List ids = new ArrayList();
+        final List messages = new ArrayList();
+        final List exceptions = new ArrayList();
+        
+        final Querier querier = getQuerier();
+        for (Message query : queries)
+        {
+            ids.add(querier.sendAsync(query, new ResolverListener()
+            {
+                public void handleException(final Object id, final Exception e)
+                {
+                    exceptions.add(e);
+                }
+                
+                
+                public void receiveMessage(final Object id, final Message m)
+                {
+                    messages.add(m);
+                }
+            }));
+        }
+        
+        int wait = Options.intValue("mdns_resolve_wait");
+        long timeOut = wait >= 0 ? wait : 1000;
+        long now;
+        long end = timeOut + (now = System.currentTimeMillis());
+        while ((now = System.currentTimeMillis()) < end)
+        {
+            try
+            {
+                Thread.sleep(end - now);
+            } catch (InterruptedException e)
+            {
+                // ignore
+            }
+        }
+        
+        List records = new ArrayList();
+        
+        for (Object o : messages)
+        {
+            Message m = (Message) o;
+            switch (m.getRcode())
+            {
+                case Rcode.NOERROR:
+                    records.addAll(Arrays.asList(MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL)));
+                    break;
+                case Rcode.NXDOMAIN:
+                    break;
+            }
+        }
+        
+        return (Record[]) records.toArray(new Record[records.size()]);
+    }
+    
+    
+    public void lookupRecordsAsync(final RecordListener listener)
+    throws IOException
+    {
+        for (Message query : queries)
+        {
+            getQuerier().sendAsync(query, new ResolverListener()
+            {
+                public void handleException(final Object id, final Exception e)
+                {
+                    listener.handleException(id, e);
+                }
+                
+                
+                public void receiveMessage(final Object id, final Message m)
+                {
+                    Record[] records = MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY);
+                    for (Record r : records)
+                    {
+                        listener.receiveRecord(id, r);
+                    }
+                }
+            });
+        }
+    }
+    
+    
+    public ServiceInstance[] lookupServices()
+    throws IOException
+    {
+        final List results = new ArrayList();
+        results.addAll(Arrays.asList(extractServiceInstances(lookupRecords())));
+        return (ServiceInstance[]) results.toArray(new ServiceInstance[results.size()]);
     }
 }

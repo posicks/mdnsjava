@@ -12,9 +12,9 @@ import java.util.Stack;
 
 /**
  * The ListenerSupport class implements a performant, thread safe, listener subsystem
- * that does not create temporary objects during the event dispatch process.  The order in which
- * listeners are registered determines the order by which the listeners are called during event 
- * dispatch.  A listener may halt the delivery of events to subsequent listeners by throwing a
+ * that does not create temporary objects during the event dispatch process. The order in which
+ * listeners are registered determines the order by which the listeners are called during event
+ * dispatch. A listener may halt the delivery of events to subsequent listeners by throwing a
  * StopDispatchException.
  * 
  * @author Steve Posick
@@ -22,17 +22,30 @@ import java.util.Stack;
 @SuppressWarnings("unchecked")
 public class ListenerProcessor<T> implements Closeable
 {
+    public static class StopDispatchException extends Exception
+    {
+        private static final long serialVersionUID = 201401211841L;
+        
+        
+        public StopDispatchException()
+        {
+            super();
+        }
+    }
+    
+    
     protected static class Dispatcher implements InvocationHandler
     {
         ListenerProcessor<?> processor;
         
-        protected Dispatcher(ListenerProcessor<?> processor)
+        
+        protected Dispatcher(final ListenerProcessor<?> processor)
         {
             this.processor = processor;
         }
         
-
-        public Object invoke(Object proxy, Method method, Object[] args)
+        
+        public Object invoke(final Object proxy, final Method method, final Object[] args)
         throws Throwable
         {
             Object[] tempListeners = Arrays.copyOf(processor.listeners, processor.listeners.length);
@@ -74,25 +87,14 @@ public class ListenerProcessor<T> implements Closeable
         }
     }
     
-    
-    public static class StopDispatchException extends Exception
-    {
-        private static final long serialVersionUID = 201401211841L;
-
-        public StopDispatchException()
-        {
-            super();
-        }
-    }
-    
-    private Class<T> iface;
+    private final Class<T> iface;
     
     private Object[] listeners = new Object[0];
-
+    
     private T dispatcher;
     
-
-    public ListenerProcessor(Class<T> iface)
+    
+    public ListenerProcessor(final Class<T> iface)
     {
         this.iface = iface;
         if (!iface.isInterface())
@@ -102,15 +104,36 @@ public class ListenerProcessor<T> implements Closeable
     }
     
     
-    public synchronized T registerListener(T listener)
+    public void close()
+    throws IOException
+    {
+        for (int i = 0; i < this.listeners.length; i++ )
+        {
+            this.listeners[i] = null;
+        }
+        this.listeners = new Object[0];
+    }
+    
+    
+    public T getDispatcher()
+    {
+        if (dispatcher == null)
+        {
+            dispatcher = (T) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[] {iface}, new Dispatcher(this));
+        }
+        return dispatcher;
+    }
+    
+    
+    public synchronized T registerListener(final T listener)
     {
         // Make sure the listener is not null and that it implements the Interface
-        if (listener != null && iface.isAssignableFrom(listener.getClass()))
+        if ((listener != null) && iface.isAssignableFrom(listener.getClass()))
         {
             // Check to ensure the listener does not exist
-            for (int index = 0; index < listeners.length; index++)
+            for (int index = 0; index < listeners.length; index++ )
             {
-                if (listeners[index] == listener || listeners[index].equals(listener))
+                if ((listeners[index] == listener) || listeners[index].equals(listener))
                 {
                     // already registered
                     return (T) listeners[index];
@@ -127,18 +150,18 @@ public class ListenerProcessor<T> implements Closeable
             return null;
         }
     }
-
-
-    public synchronized T unregisterListener(T listener)
+    
+    
+    public synchronized T unregisterListener(final T listener)
     {
         if (listener != null)
         {
             T[] temp = (T[]) Arrays.copyOf(listeners, listeners.length);
             
-            // Find listener 
-            for (int index = 0; index < temp.length; index++)
+            // Find listener
+            for (int index = 0; index < temp.length; index++ )
             {
-                if (temp[index] == listener || temp[index].equals(listener))
+                if ((temp[index] == listener) || temp[index].equals(listener))
                 {
                     Object foundListener = temp[index];
                     
@@ -155,17 +178,7 @@ public class ListenerProcessor<T> implements Closeable
     }
     
     
-    public T getDispatcher()
-    {
-        if (dispatcher == null)
-        {
-            dispatcher = (T) Proxy.newProxyInstance(getClass().getClassLoader(), new Class[]{iface}, new Dispatcher(this));
-        } 
-        return dispatcher;
-    }
-
-
-    protected Class<?>[] getAllInterfaces(Class<?> clazz)
+    protected Class<?>[] getAllInterfaces(final Class<?> clazz)
     {
         LinkedHashSet<Class<?>> set = new LinkedHashSet<Class<?>>();
         Stack<Class<?>> stack = new Stack<Class<?>>();
@@ -181,7 +194,7 @@ public class ListenerProcessor<T> implements Closeable
         {
             Class<?> cls = stack.pop();
             Class<?>[] interfaces = cls.getInterfaces();
-            if (interfaces != null && interfaces.length > 0)
+            if ((interfaces != null) && (interfaces.length > 0))
             {
                 for (Class<?> iface : interfaces)
                 {
@@ -204,16 +217,5 @@ public class ListenerProcessor<T> implements Closeable
         }
         
         return set.toArray(new Class[set.size()]);
-    }
-
-
-    public void close()
-    throws IOException
-    {
-        for (int i = 0; i < this.listeners.length; i++)
-        {
-            this.listeners[i] = null;
-        }
-        this.listeners = new Object[0];
     }
 }

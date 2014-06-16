@@ -8,7 +8,7 @@ import org.xbill.DNS.TextParseException;
 public class ServiceName extends Name
 {
     private static final long serialVersionUID = 201305151047L;
-
+    
     /* Used for printing non-printable characters */
     private static final DecimalFormat byteFormat = new DecimalFormat();
     
@@ -27,25 +27,25 @@ public class ServiceName extends Name
     private String protocol;
     
     private String application;
-
-    private Name serviceTypeName;
+    
+    private final Name serviceTypeName;
     
     
-    public ServiceName(String s)
+    public ServiceName(final String s)
     throws TextParseException
     {
         this(new Name(s));
     }
     
     
-    public ServiceName(String s, Name name)
+    public ServiceName(final String s, final Name name)
     throws TextParseException
     {
         this(new Name(s, name));
     }
     
     
-    ServiceName(Name name)
+    ServiceName(final Name name)
     throws TextParseException
     {
         super(name, 0);
@@ -56,45 +56,45 @@ public class ServiceName extends Name
         int offsetLength = 0;
         
         // Traverse the labels to find the protocol specification (currently limited to _tcp or _udp).
-        for (int index = labelCount - 1; index >= 0; index--)
+        for (int index = labelCount - 1; index >= 0; index-- )
         {
             labels[index] = name.getLabel(index);
-            if (labels[index][0] > 0 && labels[index][1] == '_')
+            if ((labels[index][0] > 0) && (labels[index][1] == '_'))
             {
                 if (offsetLength > offsets.length)
                 {
                     throw new TextParseException("Name \"" + name + "\" is not a RFC 2782 service name!");
                 }
                 
-                offsets[offsetLength] = index; 
-                switch (offsetLength++)
+                offsets[offsetLength] = index;
+                switch (offsetLength++ )
                 {
                     case 0:
-                        this.protocol = byteString(labels[offsets[0]]);
+                        protocol = byteString(labels[offsets[0]]);
                         break;
                     case 1:
-                        this.application = byteString(labels[offsets[1]]);
-                        this.type = application + "." + protocol;
-                        this.fullType = type;
+                        application = byteString(labels[offsets[1]]);
+                        type = application + "." + protocol;
+                        fullType = type;
                         break;
                     case 2:
                         break;
                     case 3:
                         StringBuilder sb = new StringBuilder();
-                        for (int i = offsets[3]; i < offsets[2]; i++)
+                        for (int i = offsets[3]; i < offsets[2]; i++ )
                         {
                             sb.append(byteString(labels[i])).append(".");
                         }
                         sb.setLength(sb.length() - 1);
-                        this.subType = sb.toString();
-                        this.fullSubType = subType + "." + byteString(labels[offsets[2]]);
-                        this.fullType = fullSubType + "." + type;
+                        subType = sb.toString();
+                        fullSubType = subType + "." + byteString(labels[offsets[2]]);
+                        fullType = fullSubType + "." + type;
                         break;
                 }
             }
         }
         
-        if (offsetLength <= 1 || offsetLength == 3)
+        if ((offsetLength <= 1) || (offsetLength == 3))
         {
             throw new TextParseException("Name \"" + name + "\" is not a RFC 2782 service name!");
         }
@@ -103,20 +103,20 @@ public class ServiceName extends Name
         if (offsets[offsetLength - 1] > 0)
         {
             StringBuilder instance = new StringBuilder();
-            for (int index = offsets[offsetLength - 1] - 1; index >= 0; index--)
+            for (int index = offsets[offsetLength - 1] - 1; index >= 0; index-- )
             {
                 instance.append(byteString(labels[index]));
             }
             this.instance = instance.length() > 0 ? instance.toString() : null;
-        }   
+        }
         
         // Determine Domain
         if (offsets[0] > 0)
         {
             StringBuilder domain = new StringBuilder();
-            for (int index = offsets[0] + 1; index < labels.length ; index++)
+            for (int index = offsets[0] + 1; index < labels.length; index++ )
             {
-                if (labels[index] != null && labels[index][0] > 0)
+                if ((labels[index] != null) && (labels[index][0] > 0))
                 {
                     domain.append(byteString(labels[index])).append(".");
                 }
@@ -124,22 +124,76 @@ public class ServiceName extends Name
             this.domain = domain.toString();
         } else
         {
-            this.domain = ".";
+            domain = ".";
         }
         
         serviceTypeName = new Name(fullType + "." + domain);
     }
     
     
-    private String byteString(byte[] array)
+    public String getApplication()
+    {
+        return application;
+    }
+    
+    
+    public String getDomain()
+    {
+        return domain;
+    }
+    
+    
+    public String getFullSubType()
+    {
+        return fullSubType;
+    }
+    
+    
+    public String getFullType()
+    {
+        return fullType;
+    }
+    
+    
+    public String getInstance()
+    {
+        return instance;
+    }
+    
+    
+    public String getProtocol()
+    {
+        return protocol;
+    }
+    
+    
+    public Name getServiceTypeName()
+    {
+        return serviceTypeName;
+    }
+    
+    
+    public String getSubType()
+    {
+        return subType;
+    }
+    
+    
+    public String getType()
+    {
+        return type;
+    }
+    
+    
+    private String byteString(final byte[] array)
     {
         int pos = 0;
         StringBuilder sb = new StringBuilder();
-        int len = array[pos++];
-        for (int i = pos; i < pos + len; i++)
+        int len = array[pos++ ];
+        for (int i = pos; i < (pos + len); i++ )
         {
             int b = array[i] & 0xFF;
-            if (b <= 0x20 || b >= 0x7f)
+            if ((b <= 0x20) || (b >= 0x7f))
             {
                 sb.append('\\');
                 sb.append(byteFormat.format(b));
@@ -147,18 +201,18 @@ public class ServiceName extends Name
             {
                 switch (b)
                 {
-                    case '"' :
-                    case '(' :
-                    case ')' :
-                    case '.' :
-                    case ';' :
-                    case '\\' :
-                    case '@' :
-                    case '$' :
+                    case '"':
+                    case '(':
+                    case ')':
+                    case '.':
+                    case ';':
+                    case '\\':
+                    case '@':
+                    case '$':
                         sb.append('\\');
                         sb.append((char) b);
                         break;
-                    default :
+                    default:
                         sb.append((char) b);
                         break;
                 }
@@ -166,13 +220,13 @@ public class ServiceName extends Name
         }
         return sb.toString();
     }
-
     
-    public static void main(String... args)
+    
+    public static void main(final String... args)
     throws TextParseException
     {
         Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)_test._sub._syncmate._tcp.local.");
-
+        
         ServiceName name = new ServiceName(serviceName);
         System.out.println("Service Name = " + name);
         System.out.println("Instance: " + name.instance);
@@ -185,65 +239,11 @@ public class ServiceName extends Name
         
         int iterations = 1000000;
         long startNanos = System.nanoTime();
-        for (int index = 0; index < iterations; index++)
+        for (int index = 0; index < iterations; index++ )
         {
             name = new ServiceName(serviceName);
         }
         long tookNanos = System.nanoTime() - startNanos;
-        System.out.println("Took " + ((double) ((double) tookNanos / (double) 1000000)) + " milliseonds to parse " + iterations + " service names at " + (tookNanos / iterations) + " nanoseconds each name");
-    }
-
-
-    public String getInstance()
-    {
-        return instance;
-    }
-
-
-    public String getFullSubType()
-    {
-        return fullSubType;
-    }
-
-
-    public String getSubType()
-    {
-        return subType;
-    }
-
-
-    public String getFullType()
-    {
-        return fullType;
-    }
-
-
-    public String getType()
-    {
-        return type;
-    }
-
-
-    public String getDomain()
-    {
-        return domain;
-    }
-
-
-    public String getProtocol()
-    {
-        return protocol;
-    }
-
-
-    public String getApplication()
-    {
-        return application;
-    }
-    
-    
-    public Name getServiceTypeName()
-    {
-        return serviceTypeName;
+        System.out.println("Took " + ((double) tookNanos / (double) 1000000) + " milliseonds to parse " + iterations + " service names at " + (tookNanos / iterations) + " nanoseconds each name");
     }
 }
