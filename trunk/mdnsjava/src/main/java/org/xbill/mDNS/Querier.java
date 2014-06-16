@@ -20,37 +20,18 @@ import org.xbill.DNS.ResolverListener;
 public interface Querier extends Resolver, Closeable
 {
     static final int DEFAULT_UDPSIZE = 512;
-
+    
     static final int DEFAULT_TIMEOUT = 6 * 1000;
-
+    
     static final int DEFAULT_RESPONSE_WAIT_TIME = 250;
-
+    
     static final int DEFAULT_RETRY_INTERVAL = 1000;
     
     
     /**
-     * Sets the minimum amount of time to wait for mDNS responses, between retries, when the 
-     * query is not fully cached.
-     * 
-     * @param secs Number of seconds
-     */
-    public void setRetryWaitTime(int secs);
-
-    
-    /**
-     * Sets the minimum amount of time to wait for mDNS responses, between retries, when the 
-     * query is not fully cached.
-     * 
-     * @param secs Number of seconds
-     * @param msecs Number of milliseconds
-     */
-    public void setRetryWaitTime(int secs, int msecs);
-
-
-    /**
-     * Broadcasts a name resolution query to the network, returning immediately.  The response(s) 
-     * are delegated to the ResolverListeners registered via the registerListener operation or 
-     * that are browsing for a similar query. 
+     * Broadcasts a name resolution query to the network, returning immediately. The response(s)
+     * are delegated to the ResolverListeners registered via the registerListener operation or
+     * that are browsing for a similar query.
      * 
      * @param message The message to broadcast.
      * @param addKnownAnswers Add known records to the request for the Known-Answer Suppression, as per RFC 6762.
@@ -59,16 +40,24 @@ public interface Querier extends Resolver, Closeable
      */
     public void broadcast(Message message, boolean addKnownAnswers)
     throws IOException;
-
-
+    
+    
+    /**
+     * Returns the Multicast domains pertinent for this Responder.
+     * 
+     * @return The Mulitcast domains pertinent for this Responder
+     */
+    public Name[] getMulticastDomains();
+    
+    
     /**
      * Returns true is IPv4 is enabled.
      * 
      * @return true is IPv4 is enabled
      */
     public boolean isIPv4();
-
-
+    
+    
     /**
      * Returns true is IPv6 is enabled.
      * 
@@ -86,23 +75,34 @@ public interface Querier extends Resolver, Closeable
     
     
     /**
-     * Returns the Multicast domains pertinent for this Responder.
-     * 
-     * @return The Mulitcast domains pertinent for this Responder
-     */
-    public Name[] getMulticastDomains();
-    
-    
-    /**
      * Registers a ResolverListener that receives asynchronous name resolution requests and responses.
-     * Once set, the Resolver will receive responses until the listener is unregistered.  The listener
-     * receives all mDNS datagrams, regardless of type or name. 
+     * Once set, the Resolver will receive responses until the listener is unregistered. The listener
+     * receives all mDNS datagrams, regardless of type or name.
      * 
      * @param listener ResolverListener that receives asynchronous name resolution requests and responses.
      * 
-     * @return The listener if added, otherwise null.  Note, the returned listener may be a new object
+     * @return The listener if added, otherwise null. Note, the returned listener may be a new object
      */
     public ResolverListener registerListener(ResolverListener listener);
+    
+    
+    /**
+     * Sets the minimum amount of time to wait for mDNS responses, between retries, when the
+     * query is not fully cached.
+     * 
+     * @param secs Number of seconds
+     */
+    public void setRetryWaitTime(int secs);
+    
+    
+    /**
+     * Sets the minimum amount of time to wait for mDNS responses, between retries, when the
+     * query is not fully cached.
+     * 
+     * @param secs Number of seconds
+     * @param msecs Number of milliseconds
+     */
+    public void setRetryWaitTime(int secs, int msecs);
     
     
     /**

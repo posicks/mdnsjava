@@ -15,7 +15,7 @@ import java.util.Map;
 
 import org.xbill.DNS.Options;
 
-@SuppressWarnings({"unchecked","rawtypes"})
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class UnicastProcessor extends NetworkProcessor
 {
     protected static interface SocketListener
@@ -23,12 +23,13 @@ public class UnicastProcessor extends NetworkProcessor
         public void dataReceived();
     }
     
+    
     protected abstract static class UnicastRunner implements Runnable
     {
         SocketChannel channel;
         
         
-        UnicastRunner(SocketChannel channel)
+        UnicastRunner(final SocketChannel channel)
         {
             this.channel = channel;
         }
@@ -43,7 +44,7 @@ public class UnicastProcessor extends NetworkProcessor
     protected Map readBuffers = new HashMap();
     
     
-    public UnicastProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
+    public UnicastProcessor(final InetAddress ifaceAddress, final InetAddress address, final int port, final PacketListener listener)
     throws IOException
     {
         super(ifaceAddress, address, port, listener);
@@ -58,24 +59,35 @@ public class UnicastProcessor extends NetworkProcessor
     }
     
     
+    @Override
+    public void close()
+    throws IOException
+    {
+        selector.close();
+        server.socket().close();
+        server.close();
+    }
+    
+    
     public void run()
     {
         try
         {
             while (!exit)
             {
-                /* TODO: For mDNS responses only accept requests from devices that are on the 
-                         same subnet as the interface.  
-                         
-                         (I & M) == (P & M) 
-                         
-                         where:
-                         I is the address of the interface receiving the packet.
-                         M is the subnet mask of the interface receiving the packet.
-                         P is the source address of the packet.
-                         
-                   TODO: Set IP TTL to 255
-                */
+                /*
+                 * TODO: For mDNS responses only accept requests from devices that are on the
+                 * same subnet as the interface.
+                 * 
+                 * (I & M) == (P & M)
+                 * 
+                 * where:
+                 * I is the address of the interface receiving the packet.
+                 * M is the subnet mask of the interface receiving the packet.
+                 * P is the source address of the packet.
+                 * 
+                 * TODO: Set IP TTL to 255
+                 */
                 if (selector.select(Querier.DEFAULT_RESPONSE_WAIT_TIME) > 0)
                 {
                     for (Iterator i = selector.selectedKeys().iterator(); i.hasNext();)
@@ -91,7 +103,7 @@ public class UnicastProcessor extends NetworkProcessor
                                 {
                                     ((SocketChannel) key.channel()).finishConnect();
                                 }
-                            
+                                
                                 if (key.isAcceptable())
                                 {
                                     // Accept connection
@@ -102,7 +114,7 @@ public class UnicastProcessor extends NetworkProcessor
                                     client.register(selector, SelectionKey.OP_READ);
                                     clients.put(key, client);
                                 }
-
+                                
                                 if (key.isReadable())
                                 {
                                     SocketChannel channel = (SocketChannel) key.channel();
@@ -119,13 +131,13 @@ public class UnicastProcessor extends NetworkProcessor
                                         throw new IOException("Read on closed key");
                                     } else
                                     {
-    //                                  readBuffer.flip();
-                                      
-                                      System.out.println("Received message from " + channel.socket().getRemoteSocketAddress());
-    //                                  threadPool.execute(new PacketDispatchRunner(new Packet(datagram), listeners));
+                                        // readBuffer.flip();
+                                        
+                                        System.out.println("Received message from " + channel.socket().getRemoteSocketAddress());
+                                        // threadPool.execute(new PacketDispatchRunner(new Packet(datagram), listeners));
                                     }
                                 }
-
+                                
                                 if (key.isWritable())
                                 {
                                     // Write data.
@@ -146,6 +158,7 @@ public class UnicastProcessor extends NetworkProcessor
                 /*
                  * final SocketChannel channel = server.accept(); if (channel !=
                  * null) { threadPool.execute(new UnicastRunner(channel) {
+                 * 
                  * @Override public void run() { try { ByteBuffer buffer =
                  * ByteBuffer.allocateDirect(mtu); int bytesRead =
                  * channel.read(buffer); if (bytesRead > 0) { } } catch
@@ -165,8 +178,8 @@ public class UnicastProcessor extends NetworkProcessor
             }
         } catch (Exception e)
         {
-System.err.println("!!!!! Error receiving data from \"" + address + "\" - " + e.getMessage() + " !!!!!");
-e.printStackTrace(System.err);
+            System.err.println("!!!!! Error receiving data from \"" + address + "\" - " + e.getMessage() + " !!!!!");
+            e.printStackTrace(System.err);
             if (server.isOpen() && !exit)
             {
                 if (Options.check("mdns_verbose"))
@@ -180,19 +193,10 @@ e.printStackTrace(System.err);
     
     
     @Override
-    public void send(byte[] data)
+    public void send(final byte[] data)
     throws IOException
     {
         // TODO Auto-generated method stub
         
-    }
-    
-    
-    public void close()
-    throws IOException
-    {
-        selector.close();
-        server.socket().close();
-        server.close();
     }
 }

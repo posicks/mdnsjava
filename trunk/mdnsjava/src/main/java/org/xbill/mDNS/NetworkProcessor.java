@@ -6,8 +6,6 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
-import java.util.Queue;
-import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
@@ -15,27 +13,13 @@ import org.xbill.DNS.Options;
 
 public abstract class NetworkProcessor implements Runnable, Closeable
 {
-    // Normally MTU size is 1500, but can be up to 9000 for jumbo frames.
-    public static final int DEFAULT_MTU = 1500;
-
-    public static final int AVERAGE_QUEUE_THRESHOLD = 2;
-
-    public static final int MAX_QUEUE_THRESHOLD = 10;
-    
-    
-    protected static interface PacketListener
-    {
-        void packetReceived(Packet packet);
-    }
-    
-    
     protected static class Packet
     {
-        private InetAddress address;
+        private final InetAddress address;
         
-        private int port;
+        private final int port;
         
-        private byte[] data;
+        private final byte[] data;
         
         protected static int sequence;
         
@@ -44,18 +28,24 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         protected ExecutionTimer timer = new ExecutionTimer();
         
         
-        protected Packet(DatagramPacket datagram)
+        protected Packet(final DatagramPacket datagram)
         {
             this(datagram.getAddress(), datagram.getPort(), datagram.getData(), datagram.getOffset(), datagram.getLength());
         }
         
         
-        protected Packet(InetAddress address, int port, byte[] data, int offset, int length)
+        protected Packet(final InetAddress address, final int port, final byte[] data, final int offset, final int length)
         {
-            this.id = Packet.sequence++;
+            id = Packet.sequence++ ;
             this.address = address;
             this.port = port;
             this.data = data;
+        }
+        
+        
+        public InetAddress getAddress()
+        {
+            return address;
         }
         
         
@@ -63,49 +53,56 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         {
             return data;
         }
-
-
-        public SocketAddress getSocketAddress()
-        {
-            return new InetSocketAddress(address, port);
-        }
-
-
-        public InetAddress getAddress()
-        {
-            return address;
-        }
-
-
+        
+        
         public int getPort()
         {
             return port;
         }
-    }
-
-    
-    protected ThreadPoolExecutor processorExecutor = null;
-    
-    
-    protected class PacketRunner implements Runnable
-    {
-        private Packet[] packets;
         
         
-        protected PacketRunner(PacketListener dispatcher, Packet... packets)
+        public SocketAddress getSocketAddress()
         {
+            return new InetSocketAddress(address, port);
+        }
+    }
+    
+    
+    protected static interface PacketListener
+    {
+        void packetReceived(Packet packet);
+    }
+    
+    
+    protected static class PacketRunner implements Runnable
+    {
+        private static long lastPacket = -1;
+        
+        PacketListener dispatcher;
+        
+        private final Packet[] packets;
+        
+        
+        protected PacketRunner(final PacketListener dispatcher, final Packet... packets)
+        {
+            this.dispatcher = dispatcher;
             this.packets = packets;
+            if (lastPacket <= 0)
+            {
+                lastPacket = System.currentTimeMillis();
+            }
         }
         
         
         public void run()
         {
-            if (Options.check("mdns_verbose") || Options.check("mdns_packet_verbose"))
+            if (verboseLogging)
             {
                 System.out.println("Running " + packets.length + " on a single thread");
             }
+            lastPacket = System.currentTimeMillis();
             
-            PacketListener dispatcher = listener;
+            PacketListener dispatcher = this.dispatcher;
             for (Packet packet : packets)
             {
                 try
@@ -131,86 +128,16 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         }
     }
     
+    // Normally MTU size is 1500, but can be up to 9000 for jumbo frames.
+    public static final int DEFAULT_MTU = 1500;
     
-    /*
-    protected class QueueRunner implements Runnable
-    {
-        private long lastRun = System.currentTimeMillis();
-        
-        private boolean verboseLogging = false;
-
-        
-        protected QueueRunner()
-        {
-            verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
-                             Options.check("mdns_verbose") || Options.check("verbose");
-        }
-        
-        
-        public void run()
-        {
-            while (!exit)
-            {
-                if (verboseLogging)
-                {
-                    long now = System.currentTimeMillis();
-                    long time = now - lastRun;
-                    if (time > 50)
-                    {
-                        System.out.println("-----> QueueRunner last run " + time + " milliseconds ago. <-----");
-                    }
-                    lastRun = now;
-                }
-                
-                Packet packet = null;
-                
-                while ((packet = queue.poll()) != null)
-                {
-                    if (verboseLogging)
-                    {
-                        double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                        System.out.println("Packet \"" + packet.id + "\" took " + took + " to be popped from queue.");
-                        packet.timer.start();
-                        System.err.println("-----> Passing packet " + packet.id + " onto PacketRunner <-----");
-                    }
-                    
-                    try
-                    {
-                        if (verboseLogging)
-                        {
-                            double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                            System.out.println("ProcessingRunner took " + took + " milliseconds to start packet " + packet.id + ".");
-                            took = packet.timer.took(TimeUnit.MILLISECONDS);
-                            System.out.println("Processing packet " + packet.id + " took " + took + " to be executed by the PacketRunner.");
-                            ExecutionTimer._start();
-                        }
-                        if (verboseLogging)
-                        {
-                            System.err.println("-----> Dispatching packet " + packet.id + " <-----");
-                        }
-                        processorExecutor.execute(new PacketRunner(listener, packet));
-                        if (verboseLogging)
-                        {
-                            System.out.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " to be processed by dispatched to Listeners.");
-                        }
-                    } catch (Throwable e)
-                    {
-                        System.err.println("Error dispatching data packet - " + e.getMessage());
-                        e.printStackTrace(System.err);
-                    }
-                }
-                
-                try
-                {
-                    Thread.sleep(10);
-                } catch (InterruptedException e)
-                {
-                    // ignore
-                }
-            }
-        }
-    }
-*/
+    public static final int AVERAGE_QUEUE_THRESHOLD = 2;
+    
+    public static final int MAX_QUEUE_THRESHOLD = 10;
+    
+    public static final int PACKET_MONITOR_NO_PACKET_RECEIVED_TIMEOUT = 100000;
+    
+    protected static boolean verboseLogging = false;
     
     protected InetAddress ifaceAddress;
     
@@ -222,25 +149,30 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected int mtu = DEFAULT_MTU;
     
-    protected boolean exit = false;
+    protected transient boolean exit = false;
     
     protected PacketListener listener;
     
-    protected Queue<Packet> queue = new ConcurrentLinkedQueue<Packet>();
+    protected boolean threadMonitoring = false;
     
-    protected boolean verboseLogging = false; 
+    protected Thread monitorThread = null;
+    
+    protected ThreadPoolExecutor processorExecutor = null;
     
     
-    public NetworkProcessor(InetAddress ifaceAddress, InetAddress address, int port, PacketListener listener)
+    public NetworkProcessor(final InetAddress ifaceAddress, final InetAddress address, final int port, final PacketListener listener)
     throws IOException
     {
-/* TODO: Remove When done testing 
-Options.set("mdns_cache_verbose");
-Options.set("cache_verbose");
-Options.set("mdns_network_verbose");
-Options.set("network_verbose"); */
-        verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
-                         Options.check("mdns_verbose") || Options.check("verbose");
+        /*
+         * Remove When done developing and testing
+ Options.set("mdns_cache_verbose");
+ Options.set("cache_verbose");
+ Options.set("mdns_network_verbose");
+ Options.set("network_verbose");
+         */
+        Options.set("mdns_network_thread_monitor");
+        verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("verbose");
+        threadMonitoring = Options.check("mdns_network_thread_monitor");
         
         setInterfaceAddress(ifaceAddress);
         setAddress(address);
@@ -258,20 +190,9 @@ Options.set("network_verbose"); */
         {
             public void run()
             {
-                verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") ||
-                                 Options.check("mdns_verbose") || Options.check("verbose");
+                verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("verbose");
             }
         }, 1, 1, TimeUnit.MINUTES);
-    }
-    
-    
-    public void start()
-    {
-        exit = false;
-        
-        processorExecutor = Executors.networkExecutor;
-//        processorExecutor.execute(new QueueRunner(/*, queueChecker*/));
-        processorExecutor.execute(this);
     }
     
     
@@ -282,8 +203,16 @@ Options.set("network_verbose"); */
     }
     
     
-    public abstract void send(byte[] data)
-    throws IOException;
+    public InetAddress getAddress()
+    {
+        return address;
+    }
+    
+    
+    public InetAddress getInterfaceAddress()
+    {
+        return ifaceAddress;
+    }
     
     
     public int getMTU()
@@ -292,56 +221,121 @@ Options.set("network_verbose"); */
     }
     
     
-    public boolean isOperational()
-    {
-        return !exit && !processorExecutor.isShutdown() && !processorExecutor.isTerminated() && !processorExecutor.isTerminating();
-    }
-
-
-    public void setInterfaceAddress(InetAddress address)
-    {
-        this.ifaceAddress = address;
-    }
-
-
-    public InetAddress getInterfaceAddress()
-    {
-        return ifaceAddress;
-    }
-
-
-    public void setAddress(InetAddress address)
-    {
-        this.address = address;
-    }
-
-
-    public InetAddress getAddress()
-    {
-        return address;
-    }
-
-
-    public void setPort(int port)
-    {
-        this.port = port;
-    }
-
-
     public int getPort()
     {
         return port;
     }
-
-
+    
+    
+    public boolean isIPv4()
+    {
+        return !ipv6;
+    }
+    
+    
     public boolean isIPv6()
     {
         return ipv6;
     }
-
-
-    public boolean isIPv4()
+    
+    
+    public boolean isOperational()
     {
-        return !ipv6;
+        return !exit && !processorExecutor.isShutdown() && !processorExecutor.isTerminated() && !processorExecutor.isTerminating();
+    }
+    
+    
+    public abstract void send(byte[] data)
+    throws IOException;
+    
+    
+    public void setAddress(final InetAddress address)
+    {
+        this.address = address;
+    }
+    
+    
+    public void setInterfaceAddress(final InetAddress address)
+    {
+        ifaceAddress = address;
+    }
+    
+    
+    public void setPort(final int port)
+    {
+        this.port = port;
+    }
+    
+    
+    public void start()
+    {
+        exit = false;
+        
+        processorExecutor = Executors.networkExecutor;
+        processorExecutor.execute(this);
+        if (threadMonitoring)
+        {
+            /*
+             * This thread monitors the NetworkProcessor, closing it if Packet
+             * processing stops or if the Executors it relies upon
+             * are shutdown or terminated by any means. An Executor is NOT used
+             * so that full control of the thread can be retained.
+             */
+            Thread t = new Thread(new Runnable()
+            {
+                public void run()
+                {
+                    while ( !exit)
+                    {
+                        try
+                        {
+                            Thread.sleep(1000);
+                        } catch (InterruptedException e)
+                        {
+                            // ignore
+                        }
+                        
+                        if ( !exit)
+                        {
+                            long now = System.currentTimeMillis();
+                            long lastPacket = PacketRunner.lastPacket;
+                            boolean operational = isOperational();
+                            if (now > (lastPacket + PACKET_MONITOR_NO_PACKET_RECEIVED_TIMEOUT))
+                            {
+                                String msg = "Network Processor has not received a mDNS packet in " + ((double) (now - lastPacket) / (double) 1000) + " seconds";
+                                if (processorExecutor.isShutdown())
+                                {
+                                    msg += " - ProcessorExecutor has shutdown!";
+                                } else if (processorExecutor.isTerminated())
+                                {
+                                    msg += " - ProcessorExecutor has terminated!";
+                                } else if (processorExecutor.isTerminating())
+                                {
+                                    msg += " - ProcessorExecutor is terminating!";
+                                }
+                                System.err.println(msg);
+                            }
+                            
+                            if ( !operational)
+                            {
+                                System.err.println("NetworkProcessor is NOT operational, closing it!");
+                                try
+                                {
+                                    close();
+                                } catch (IOException e)
+                                {
+                                    // ignore
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            t.setName("NetworkProcessor Operation Monitor Thread");
+            t.setPriority(Executors.DEFAULT_NETWORK_THREAD_PRIORITY);
+            t.setDaemon(true);
+            t.start();
+            monitorThread = t;
+        }
     }
 }

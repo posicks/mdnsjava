@@ -13,22 +13,38 @@ import org.xbill.DNS.Name;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.Type;
 import org.xbill.mDNS.Browse;
+import org.xbill.mDNS.Constants;
 import org.xbill.mDNS.DNSSDListener;
 import org.xbill.mDNS.ExecutionTimer;
-import org.xbill.mDNS.MulticastDNSService;
 import org.xbill.mDNS.Lookup;
 import org.xbill.mDNS.Lookup.Domain;
+import org.xbill.mDNS.MulticastDNSService;
 import org.xbill.mDNS.ServiceInstance;
 import org.xbill.mDNS.ServiceName;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class dnssd
 {
+    private static final String COMMAND_LINE =
+    "------------------------------------------------------------------------------\n" +
+    "| Command Line: dnssd <option> [parameters]                                  |\n" +
+    "------------------------------------------------------------------------------\n" +
+    "dnssd -E                         (Enumerate recommended registration domains)\n" +
+    "dnssd -F                             (Enumerate recommended browsing domains)\n" +
+    "dnssd -B        <Type> [<Domain>]             (Browse for services instances)\n" +
+    "dnssd -L <Name> <Type> [<Domain>]                (Look up a service instance)\n" +
+    "dnssd -R <Name> <Type> <Domain> <Port> <Host> [<TXT>...] (Register a service)\n" +
+    "dnssd -Q <FQDN> <rrtype> <rrclass>        (Generic query for any record type)\n" +
+    "dnssd -G v4/v6/v4v6 <Hostname>         (Get address information for hostname)\n" +
+    "dnssd -V           (Get version of currently running daemon / system service)\n" +
+    "------------------------------------------------------------------------------";
+    
+    
     protected dnssd()
     throws UnknownHostException
     {
     }
-
+    
     
     /**
      * Test program
@@ -44,19 +60,19 @@ public class dnssd
      * dnssd -Q        <FQDN> <rrtype> <rrclass> (Generic query for any record type)
      * dnssd -C        <FQDN> <rrtype> <rrclass>   (Query; reconfirming each result)
      */
-    public static void main(String[] args)
+    public static void main(final String[] args)
     throws Exception
     {
         /*
          * TODO: Java has a bug were IPv6 doesn't work and another bug where the IP TTL does not
          *       get set on outbound packets if IPv6 is enabled.  The following code works around
          *       this issue.
-         *       
+         * 
          *       Remove when IPv6 and Socket.setTimeToLive() are working.
          */
-//        Properties props = System.getProperties();
-//        props.setProperty("java.net.preferIPv4Stack","true");
-//        System.setProperties(props);
+        //        Properties props = System.getProperties();
+        //        props.setProperty("java.net.preferIPv4Stack","true");
+        //        System.setProperties(props);
         
         StringBuilder timingBuilder = new StringBuilder();
         try
@@ -71,10 +87,10 @@ public class dnssd
                 timingBuilder.setLength(timingBuilder.length() - 1);
                 timingBuilder.append("\"");
                 
-                String temp = args[0]; 
+                String temp = args[0];
                 
-                if (temp != null && (temp.length() == 2 || temp.length() == 3) && 
-                    (temp.startsWith("-") || temp.startsWith("--")))
+                if ((temp != null) && ((temp.length() == 2) || (temp.length() == 3)) &&
+                (temp.startsWith("-") || temp.startsWith("--")))
                 {
                     Name[] browseDomains;
                     ArrayList domainNames;
@@ -87,7 +103,7 @@ public class dnssd
                         case 'E':
                             // Enumerate recommended registration domains
                             ExecutionTimer._start();
-                            Lookup lookup = new Lookup(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, MulticastDNSService.REGISTRATION_DOMAIN_NAME);
+                            Lookup lookup = new Lookup(Constants.DEFAULT_REGISTRATION_DOMAIN_NAME, Constants.REGISTRATION_DOMAIN_NAME);
                             try
                             {
                                 domains = lookup.lookupDomains();
@@ -102,7 +118,7 @@ public class dnssd
                         case 'F':
                             // Enumerate recommended browse domains
                             ExecutionTimer._start();
-                            lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                            lookup = new Lookup(Constants.DEFAULT_BROWSE_DOMAIN_NAME, Constants.BROWSE_DOMAIN_NAME, Constants.LEGACY_BROWSE_DOMAIN_NAME);
                             try
                             {
                                 domains = lookup.lookupDomains();
@@ -116,7 +132,7 @@ public class dnssd
                             break;
                         case 'B':
                             // Browse for service instances
-                            if (args.length < 2 || args[1] == null || args[1].length() == 0)
+                            if ((args.length < 2) || (args[1] == null) || (args[1].length() == 0))
                             {
                                 throw new IllegalArgumentException("Too few arguments for -B option");
                             }
@@ -126,7 +142,7 @@ public class dnssd
                             {
                                 domainNames = new ArrayList();
                                 
-                                lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                                lookup = new Lookup(Constants.DEFAULT_BROWSE_DOMAIN_NAME, Constants.BROWSE_DOMAIN_NAME, Constants.LEGACY_BROWSE_DOMAIN_NAME);
                                 try
                                 {
                                     domains = lookup.lookupDomains();
@@ -135,11 +151,11 @@ public class dnssd
                                     lookup.close();
                                 }
                                 
-                                if (domains != null && domains.length > 0)
+                                if ((domains != null) && (domains.length > 0))
                                 {
                                     for (int index = 0; index < domains.length; index++)
                                     {
-                                        if (domains[index] != null && !domainNames.contains(domains[index]))
+                                        if ((domains[index] != null) && !domainNames.contains(domains[index]))
                                         {
                                             domainNames.add(domains[index].getName());
                                         }
@@ -163,34 +179,34 @@ public class dnssd
                             System.out.println();
                             System.out.println("Services Found:");
                             ExecutionTimer._start();
-//                            ExecutionTimer.start();
+                            //                            ExecutionTimer.start();
                             MulticastDNSService mDNSService = new MulticastDNSService();
                             Object id = mDNSService.startServiceDiscovery(new Browse(serviceTypes), new DNSSDListener()
                             {
-                                public void serviceDiscovered(Object id, ServiceInstance service)
+                                public void handleException(final Object id, final Exception e)
+                                {
+                                    if (!((e instanceof IOException) && "no route to host".equalsIgnoreCase(e.getMessage())))
+                                    {
+                                        System.err.println("Exception: " + e.getMessage());
+                                        e.printStackTrace(System.err);
+                                    }
+                                }
+                                
+                                
+                                public void receiveMessage(final Object id, final Message m)
+                                {
+                                }
+                                
+                                
+                                public void serviceDiscovered(final Object id, final ServiceInstance service)
                                 {
                                     System.out.println("Service Discovered - " + service);
                                 }
                                 
                                 
-                                public void serviceRemoved(Object id, ServiceInstance service)
+                                public void serviceRemoved(final Object id, final ServiceInstance service)
                                 {
                                     System.out.println("Service Removed - " + service);
-                                }
-                                
-                                
-                                public void receiveMessage(Object id, Message m)
-                                {
-                                }
-                                
-                                
-                                public void handleException(Object id, Exception e)
-                                {
-                                    if (!(e instanceof IOException && "no route to host".equalsIgnoreCase(e.getMessage())))
-                                    {
-                                        System.err.println("Exception: " + e.getMessage());
-                                        e.printStackTrace(System.err);
-                                    }
                                 }
                             });
                             System.out.println("\nStarting Browse for " + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
@@ -208,7 +224,7 @@ public class dnssd
                             break;
                         case 'L':
                             // Lookup a service
-                            if (args.length < 3 || args[2] == null || args[2].length() == 0)
+                            if ((args.length < 3) || (args[2] == null) || (args[2].length() == 0))
                             {
                                 throw new IllegalArgumentException("Too few arguments for -L option");
                             }
@@ -218,7 +234,7 @@ public class dnssd
                             {
                                 domainNames = new ArrayList();
                                 
-                                lookup = new Lookup(MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, MulticastDNSService.BROWSE_DOMAIN_NAME, MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                                lookup = new Lookup(Constants.DEFAULT_BROWSE_DOMAIN_NAME, Constants.BROWSE_DOMAIN_NAME, Constants.LEGACY_BROWSE_DOMAIN_NAME);
                                 try
                                 {
                                     domains = lookup.lookupDomains();
@@ -227,11 +243,11 @@ public class dnssd
                                     lookup.close();
                                 }
                                 
-                                if (domains != null && domains.length > 0)
+                                if ((domains != null) && (domains.length > 0))
                                 {
                                     for (int index = 0; index < domains.length; index++)
                                     {
-                                        if (domains[index] != null && !domainNames.contains(domains[index]))
+                                        if ((domains[index] != null) && !domainNames.contains(domains[index]))
                                         {
                                             domainNames.add(domains[index].getName());
                                         }
@@ -281,12 +297,12 @@ public class dnssd
                             String host = args[5];
                             int port = Integer.parseInt(args[4]);
                             
-                            if (host == null || host.length() == 0)
+                            if ((host == null) || (host.length() == 0))
                             {
                                 String machineName = MulticastDNSUtils.getMachineName();
                                 if (machineName == null)
                                 {
-                                    host = MulticastDNSUtils.getHostName(); 
+                                    host = MulticastDNSUtils.getHostName();
                                 } else
                                 {
                                     host = (machineName.endsWith(".") ? machineName : machineName + ".");
@@ -302,7 +318,7 @@ public class dnssd
                             {
                             }
                             
-                            if (addresses == null || addresses.length == 0)
+                            if ((addresses == null) || (addresses.length == 0))
                             {
                                 addresses = MulticastDNSUtils.getLocalAddresses();
                             }
@@ -389,20 +405,20 @@ public class dnssd
         
         System.exit(0);
     }
-
-
-    private static void printArray(Object[] array, String... format)
+    
+    
+    private static void printArray(final Object[] array, final String... format)
     {
-        if (array != null && format != null && array.length > 0 && format.length > 0)
+        if ((array != null) && (format != null) && (array.length > 0) && (format.length > 0))
         {
             int startFormat = 0;
             int endFormat = format.length - 1;
             int lastElementFormat = -1;
             
             // Process Headers
-            if (format.length > 1) 
+            if (format.length > 1)
             {
-                while (startFormat < endFormat && !format[startFormat].contains("%"))
+                while ((startFormat < endFormat) && !format[startFormat].contains("%"))
                 {
                     System.out.print(format[startFormat++]);
                 }
@@ -411,7 +427,7 @@ public class dnssd
             // Process Footers
             if (format.length > 1)
             {
-                while (endFormat > startFormat && !format[endFormat].contains("%"))
+                while ((endFormat > startFormat) && !format[endFormat].contains("%"))
                 {
                     endFormat--;
                 }
@@ -427,7 +443,7 @@ public class dnssd
             int index = 0;
             int fIndex = startFormat;
             
-            for (; index < array.length - 1;)
+            for (; index < (array.length - 1);)
             {
                 while (!format[fIndex].contains("%"))
                 {
@@ -466,26 +482,11 @@ public class dnssd
             }
         }
     }
-
-
-    private static final String COMMAND_LINE = 
-    "------------------------------------------------------------------------------\n" +
-    "| Command Line: dnssd <option> [parameters]                                  |\n" +
-    "------------------------------------------------------------------------------\n" +
-    "dnssd -E                         (Enumerate recommended registration domains)\n" +
-    "dnssd -F                             (Enumerate recommended browsing domains)\n" +
-    "dnssd -B        <Type> [<Domain>]             (Browse for services instances)\n" +
-    "dnssd -L <Name> <Type> [<Domain>]                (Look up a service instance)\n" +
-    "dnssd -R <Name> <Type> <Domain> <Port> <Host> [<TXT>...] (Register a service)\n" +
-    "dnssd -Q <FQDN> <rrtype> <rrclass>        (Generic query for any record type)\n" +
-    "dnssd -G v4/v6/v4v6 <Hostname>         (Get address information for hostname)\n" +
-    "dnssd -V           (Get version of currently running daemon / system service)\n" +
-    "------------------------------------------------------------------------------";
     
-
-    private static void printHelp(String message)
+    
+    private static void printHelp(final String message)
     {
-        if (message != null && message.length() > 0)
+        if ((message != null) && (message.length() > 0))
         {
             System.out.println("\n==>>" + message + "<<==\n");
         }

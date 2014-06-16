@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.Stack;
-//import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadFactory;
 
@@ -36,82 +35,27 @@ import org.xbill.DNS.TXTRecord;
 import org.xbill.DNS.Type;
 import org.xbill.DNS.Update;
 import org.xbill.mDNS.Lookup.Domain;
+// import java.util.concurrent.Executors;
 
-@SuppressWarnings({"unchecked","rawtypes"})
+@SuppressWarnings({"unchecked", "rawtypes"})
 public class MulticastDNSService extends MulticastDNSLookupBase
 {
-    public static boolean hasMulticastDomains(Message query)
-    {
-        Record[] records = MulticastDNSUtils.extractRecords(query, 0, 1, 2, 3);
-        if (records != null)
-        {
-            for (Record record : records)
-            {
-                if (isMulticastDomain(record.getName()))
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-
-    public static boolean hasUnicastDomains(Message query)
-    {
-        Record[] records = MulticastDNSUtils.extractRecords(query, 0, 1, 2, 3);
-        if (records != null)
-        {
-            for (Record record : records)
-            {
-                if (!isMulticastDomain(record.getName()))
-                {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-    
-    
-    public static boolean isMulticastDomain(Name name)
-    {
-        for (Name multicastDomain : IPv4_MULTICAST_DOMAINS)
-        {
-            if (name.equals(multicastDomain) || name.subdomain(multicastDomain))
-            {
-                return true;
-            }
-        }
-        
-        for (Name multicastDomain : IPv6_MULTICAST_DOMAINS)
-        {
-            if (name.equals(multicastDomain) || name.subdomain(multicastDomain))
-            {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-    
-    
-    public MulticastDNSService()
-    throws IOException
-    {
-        super();
-    }
-    
-    
     protected class Register
     {
-        private ServiceInstance service;
+        private final ServiceInstance service;
         
-        protected Register(ServiceInstance service)
+        
+        protected Register(final ServiceInstance service)
         throws UnknownHostException
         {
             super();
             this.service = service;
+        }
+        
+        
+        protected void close()
+        throws IOException
+        {
         }
         
         
@@ -128,19 +72,19 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             /*
              * Steps to Registering a Service.
              * 
-             * 1. Query the service name of type ANY.  Ex. Test._mdc._tcp.local IN ANY Flags: QM
-             *   a. Add the Service Record to the Authoritative section.
-             *   b. Repeat 3 queries with a 250 millisecond delay between each query.
+             * 1. Query the service name of type ANY. Ex. Test._mdc._tcp.local IN ANY Flags: QM
+             * a. Add the Service Record to the Authoritative section.
+             * b. Repeat 3 queries with a 250 millisecond delay between each query.
              * 2. Send a standard Query Response containing the service records, Opcode: QUERY, Flags: QR, AA, NO ERROR
-             *   a. Add TXT record to ANSWER section. TTL: 3600
-             *   b. Add SRV record to ANSWER section. TTL: 120
-             *   c. Add DNS-SD Services PTR record to ANSWER section. TTL: 3600  Ex. _services._dns-sd.udp.local. IN PTR _mdc._tcp.local.   
-             *   d. Add PTR record to ANSWER section. Ex. _mdc._tcp.local. IN PTR Test._mdc._tcp.local. TTL: 3600
-             *   e. Add A record to ADDITIONAL section. TTL: 120  Ex. hostname.local. IN A 192.168.1.83
-             *   f. Add AAAA record to ADDITIONAL section. TTL: 120  Ex. hostname.local. IN AAAA fe80::255:ff:fe4a:6369 
-             *   g. Add NSEC record to ADDITIONAL section. TTL: 120  Ex. hostname.local. IN NSEC next domain: hostname.local. RRs: A AAAA 
-             *   h. Add NSEC record to ADDITIONAL section. TTL: 3600  Ex. Test._mdc._tcp.local. IN NSEC next domain: Test._mdc._tcp.local. RRs: TXT SRV
-             *   b. Repeat 3 queries with a 2 second delay between each query response.
+             * a. Add TXT record to ANSWER section. TTL: 3600
+             * b. Add SRV record to ANSWER section. TTL: 120
+             * c. Add DNS-SD Services PTR record to ANSWER section. TTL: 3600 Ex. _services._dns-sd.udp.local. IN PTR _mdc._tcp.local.
+             * d. Add PTR record to ANSWER section. Ex. _mdc._tcp.local. IN PTR Test._mdc._tcp.local. TTL: 3600
+             * e. Add A record to ADDITIONAL section. TTL: 120 Ex. hostname.local. IN A 192.168.1.83
+             * f. Add AAAA record to ADDITIONAL section. TTL: 120 Ex. hostname.local. IN AAAA fe80::255:ff:fe4a:6369
+             * g. Add NSEC record to ADDITIONAL section. TTL: 120 Ex. hostname.local. IN NSEC next domain: hostname.local. RRs: A AAAA
+             * h. Add NSEC record to ADDITIONAL section. TTL: 3600 Ex. Test._mdc._tcp.local. IN NSEC next domain: Test._mdc._tcp.local. RRs: TXT SRV
+             * b. Repeat 3 queries with a 2 second delay between each query response.
              */
             final List replies = new ArrayList();
             Message query = Message.newQuery(Record.newRecord(service.getName(), Type.ANY, DClass.IN));
@@ -153,21 +97,21 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             {
                 querier.sendAsync(query, new ResolverListener()
                 {
-                    public void receiveMessage(Object id, Message m)
+                    public void handleException(final Object id, final Exception e)
                     {
                         synchronized (replies)
                         {
-                            replies.add(m);
+                            replies.add(e);
                             replies.notifyAll();
                         }
                     }
                     
                     
-                    public void handleException(Object id, Exception e)
+                    public void receiveMessage(final Object id, final Message m)
                     {
                         synchronized (replies)
                         {
-                            replies.add(e);
+                            replies.add(m);
                             replies.notifyAll();
                         }
                     }
@@ -206,9 +150,9 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                 if (message.getRcode() == Rcode.NOERROR)
                                 {
                                     Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
-                                    for (int r = 0; r < records.length; r++)
+                                    for (int r = 0; r < records.length; r++ )
                                     {
-                                        if (records[r].getType() == Type.SRV && records[r].getTTL() > 0)
+                                        if ((records[r].getType() == Type.SRV) && (records[r].getTTL() > 0))
                                         {
                                             if (!srvRecord.equals(records[r]))
                                             {
@@ -228,7 +172,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             
             ServiceName serviceName = service.getName();
             Name domain = new Name(serviceName.getDomain());
-            final Update[] updates = new Update[] {new Update(domain), new Update(domain)};
+            final Update[] updates = new Update[] {new Update(domain),
+                                                   new Update(domain)};
             Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
             Name typeName = new Name(serviceName.getType() + "." + domain);
             ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
@@ -243,7 +188,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 
                 if (addresses != null)
                 {
-                    for (int index = 0; index < addresses.length; index++)
+                    for (int index = 0; index < addresses.length; index++ )
                     {
                         if (addresses[index] != null)
                         {
@@ -258,43 +203,48 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
                 
-                /* Old
-                PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
-                PTRRecord ptrFullName = new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
-                SRVRecord srv = new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
-                TXTRecord txt = new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
-                NSECRecord serviceNSEC = new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV});
-                NSECRecord addressNSEC = new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA});
-              
-                update.add(txt);
-                update.add(srv);
-                update.add(serviceTypeReg1);
-                update.add(serviceTypeReg2);
-                update.add(ptrType);
-                update.add(ptrFulName);
-              
-                update.addRecord(addressNSEC, Section.ADDITIONAL);
-                update.addRecord(serviceNSEC, Section.ADDITIONAL);
-                */
+                /*
+                 * Old
+                 * PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
+                 * PTRRecord ptrFullName = new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
+                 * SRVRecord srv = new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
+                 * TXTRecord txt = new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
+                 * NSECRecord serviceNSEC = new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT,
+                 * Type.SRV});
+                 * NSECRecord addressNSEC = new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new
+                 * int[]{Type.A, Type.AAAA});
+                 * 
+                 * update.add(txt);
+                 * update.add(srv);
+                 * update.add(serviceTypeReg1);
+                 * update.add(serviceTypeReg2);
+                 * update.add(ptrType);
+                 * update.add(ptrFulName);
+                 * 
+                 * update.addRecord(addressNSEC, Section.ADDITIONAL);
+                 * update.addRecord(serviceNSEC, Section.ADDITIONAL);
+                 */
                 
                 // Add Service and Pointer Records
-                /* Original Working code!
-                records.add(new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
-                records.add(new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
-                if (!fullTypeName.equals(typeName))
-                {
-                    records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
-                    // For compatibility with legacy clients, register the NON sub-protocol service as well.
-                    if (shortSRVName != null && !shortSRVName.equals(serviceName))
-                    {
-                        records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
-                        records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
-                        records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                        additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
-                    }
-                }
-                */
+                /*
+                 * Original Working code!
+                 * records.add(new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
+                 * records.add(new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
+                 * records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
+                 * if (!fullTypeName.equals(typeName))
+                 * {
+                 * records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
+                 * // For compatibility with legacy clients, register the NON sub-protocol service as well.
+                 * if (shortSRVName != null && !shortSRVName.equals(serviceName))
+                 * {
+                 * records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
+                 * records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
+                 * records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
+                 * additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT,
+                 * Type.SRV}));
+                 * }
+                 * }
+                 */
                 if (!fullTypeName.equals(typeName))
                 {
                     records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
@@ -303,12 +253,16 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
                 records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
                 records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
+                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[] {Type.TXT,
+                                                                                                                                                  Type.SRV}));
                 
                 // Add Security (NSEC) records
-// Original                additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT, Type.SRV}));
-                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT, Type.SRV}));
-                additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[]{Type.A, Type.AAAA}));
+                // Original additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new
+                // int[]{Type.TXT, Type.SRV}));
+                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[] {Type.TXT,
+                                                                                                                                                  Type.SRV}));
+                additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[] {Type.A,
+                                                                                                                                                         Type.AAAA}));
                 
                 for (Record record : records)
                 {
@@ -329,7 +283,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 {
                     records.add(new PTRRecord(new Name(SERVICES_NAME + "." + domain), DClass.IN, DEFAULT_SRV_TTL, fullTypeName));
                 }
-
+                
                 for (Record record : records)
                 {
                     updates[1].add(record);
@@ -338,21 +292,21 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 // Updates are sent at least 2 times, one second apart, as per RFC 6762 Section 8.3
                 ResolverListener resolverListener = new ResolverListener()
                 {
-                    public void receiveMessage(Object id, Message m)
+                    public void handleException(final Object id, final Exception e)
                     {
                         synchronized (replies)
                         {
-                            replies.add(m);
+                            replies.add(e);
                             replies.notifyAll();
                         }
                     }
                     
                     
-                    public void handleException(Object id, Exception e)
+                    public void receiveMessage(final Object id, final Message m)
                     {
                         synchronized (replies)
                         {
-                            replies.add(e);
+                            replies.add(m);
                             replies.notifyAll();
                         }
                     }
@@ -387,7 +341,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             
             long endTime = System.currentTimeMillis() + 10000;
             ServiceInstance[] instances = null;
-            while (instances == null && System.currentTimeMillis() < endTime)
+            while ((instances == null) && (System.currentTimeMillis() < endTime))
             {
                 if (replies.size() == 0)
                 {
@@ -402,14 +356,14 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         // ignore
                     }
                 }
-
-// Origonal                Lookup lookup = new Lookup(new Name[]{serviceName}, Type.ANY);
-                Lookup lookup = new Lookup(new Name[]{shortSRVName}, Type.ANY);
+                
+                // Origonal Lookup lookup = new Lookup(new Name[]{serviceName}, Type.ANY);
+                Lookup lookup = new Lookup(new Name[] {shortSRVName}, Type.ANY);
                 try
                 {
                     instances = lookup.lookupServices();
                     
-                    if (instances != null && instances.length > 0)
+                    if ((instances != null) && (instances.length > 0))
                     {
                         if (instances.length > 1)
                         {
@@ -441,137 +395,31 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             
             return null;
         }
-
-
-        protected void close()
-        throws IOException
-        {
-        }
     }
-
     
-    protected class Unregister
-    {
-        private ServiceName serviceName;
-        
-        protected Unregister(ServiceInstance service)
-        {
-            this(service.getName());
-        }
-        
-        protected Unregister(ServiceName serviceName)
-        {
-            super();
-            this.serviceName = serviceName;
-        }
-        
-        
-        protected boolean unregister()
-        throws IOException
-        {
-            /*
-             * Steps to Registering a Service.
-             * 
-             * 1. Send a standard Query Response containing the service records, Opcode: QUERY, Flags: Response, Authoritative, NO ERROR
-             *   a. Add PTR record to ANSWER section. TTL: 0  Ex. _mdc._tcp.local. IN PTR Test._mdc._tcp.local.
-             *   b. Repeat 3 queries with a 2 second delay between each query response.
-             */
-            String domain = serviceName.getDomain();
-            Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
-            Name typeName = new Name(serviceName.getType() + "." + domain);
-            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
-            
-            ArrayList<Record> records = new ArrayList<Record>();
-            ArrayList<Record> additionalRecords = new ArrayList<Record>();
-            
-            records.add(new PTRRecord(typeName, DClass.IN, 0, serviceName));
-            if (!fullTypeName.equals(typeName))
-            {
-                records.add(new PTRRecord(fullTypeName, DClass.IN, 0, serviceName));
-                records.add(new PTRRecord(typeName, DClass.IN, 0, shortSRVName));
-            }
-            
-            Update update = new Update(new Name(domain));
-            for (Record record : records)
-            {
-                update.add(record);
-            }
-            
-            for (Record record : additionalRecords)
-            {
-                update.addRecord(record, Section.ADDITIONAL);
-            }
-            
-            // Updates are sent at least 2 times, one second apart, as per RFC 6762 Section 8.3
-            ResolverListener resolverListener = new ResolverListener()
-            {
-                public void receiveMessage(Object id, Message m)
-                {
-                }
-                
-                
-                public void handleException(Object id, Exception e)
-                {
-                }
-            };
-            
-            int tries = 0;
-            while (tries++ < 3)
-            {
-                querier.sendAsync(update, resolverListener);
-                
-                long retry = System.currentTimeMillis() + 2000;
-                while (System.currentTimeMillis() < retry)
-                {
-                    try
-                    {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException e)
-                    {
-                        // ignore
-                    }
-                }
-            }
-            
-            Lookup lookup = new Lookup(new Name[]{serviceName.getServiceTypeName()}, Type.PTR,DClass.ANY);
-            try
-            {
-                Record[] results = lookup.lookupRecords();
-                return results == null || results.length == 0;
-            } finally
-            {
-                lookup.close();
-            }
-        }
-        
-        
-        protected void close()
-        throws IOException
-        {
-        }
-    }
+    
     /**
-     * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
+     * The Browse Operation manages individual browse sessions. Retrying broadcasts.
      * Refer to the mDNS specification [RFC 6762]
      * 
      * @author Steve Posick
      */
     protected class ServiceDiscoveryOperation implements ResolverListener
     {
-        private Browse browser;
+        private final Browse browser;
         
-        private ListenerProcessor<DNSSDListener> listenerProcessor = new ListenerProcessor<DNSSDListener>(DNSSDListener.class);
+        private final ListenerProcessor<DNSSDListener> listenerProcessor = new ListenerProcessor<DNSSDListener>(DNSSDListener.class);
         
-        private Map services = new LinkedHashMap();
+        private final Map services = new LinkedHashMap();
         
         
-        ServiceDiscoveryOperation(Browse browser)
+        ServiceDiscoveryOperation(final Browse browser)
         {
             this(browser, null);
         }
-
-
-        ServiceDiscoveryOperation(Browse browser, DNSSDListener listener)
+        
+        
+        ServiceDiscoveryOperation(final Browse browser, final DNSSDListener listener)
         {
             this.browser = browser;
             
@@ -580,76 +428,35 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 registerListener(listener);
             }
         }
-
-
-        Browse getBrowser()
-        {
-            return browser;
-        }
         
         
-        boolean answersQuery(Record record)
+        public void close()
         {
-            if (record != null)
+            try
             {
-                for (Message query : browser.queries)
-                {
-                    for (Record question : MulticastDNSUtils.extractRecords(query, Section.QUESTION))
-                    {
-                        Name questionName = question.getName();
-                        Name recordName = record.getName();
-                        int questionType = question.getType();
-                        int recordType = record.getType();
-                        int questionDClass = question.getDClass();
-                        int recordDClass = record.getDClass();
-                        
-                        if ((questionType == Type.ANY || questionType == recordType) &&
-                            (questionName.equals(recordName) || questionName.subdomain(recordName) ||
-                            recordName.toString().endsWith("." + questionName.toString())) &&
-                            (questionDClass == DClass.ANY || (questionDClass & 0x7FFF) == (recordDClass & 0x7FFF)))
-                        {
-                            return true;
-                        }
-                    }
-                }
+                listenerProcessor.close();
+            } catch (IOException e)
+            {
+                // ignore
             }
             
-            return false;
-        }
-        
-        
-        boolean matchesBrowse(Message message)
-        {
-            if (message != null)
+            try
             {
-                Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
-                
-                for (Record thatAnswer : thatAnswers)
-                {
-                    if (answersQuery(thatAnswer))
-                    {
-                        return true;
-                    }
-                }
+                browser.close();
+            } catch (IOException e)
+            {
+                // ignore
             }
-            
-            return false;
         }
         
         
-        DNSSDListener registerListener(DNSSDListener listener)
+        public void handleException(final Object id, final Exception e)
         {
-            return listenerProcessor.registerListener(listener);
+            listenerProcessor.getDispatcher().handleException(id, e);
         }
         
         
-        DNSSDListener unregisterListener(DNSSDListener listener)
-        {
-            return listenerProcessor.unregisterListener(listener);
-        }
-        
-        
-        public void receiveMessage(Object id, Message message)
+        public void receiveMessage(final Object id, final Message message)
         {
             if (message == null)
             {
@@ -671,7 +478,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         additionalNames.add(additionalName);
                     }
                     
-                    switch(record.getType())
+                    switch (record.getType())
                     {
                         case Type.PTR:
                             PTRRecord ptr = (PTRRecord) record;
@@ -715,7 +522,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                         
                         switch (record.getType())
                         {
-                            case Type.PTR :
+                            case Type.PTR:
                                 PTRRecord ptr = (PTRRecord) record;
                                 
                                 if (ptr.getTTL() > 0)
@@ -725,7 +532,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                     {
                                         synchronized (services)
                                         {
-                                            for (int i = 0; i < instances.length; i++)
+                                            for (int i = 0; i < instances.length; i++ )
                                             {
                                                 if (!services.containsKey(instances[i].getName()))
                                                 {
@@ -790,47 +597,268 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 }
             }
         }
-
-
-        public void handleException(Object id, Exception e)
-        {
-            listenerProcessor.getDispatcher().handleException(id, e);
-        }
         
         
         public void start()
         {
             browser.start(this);
         }
-
-
-        public void close()
+        
+        
+        boolean answersQuery(final Record record)
         {
-            try
+            if (record != null)
             {
-                listenerProcessor.close();
-            } catch (IOException e)
-            {
-                // ignore
+                for (Message query : browser.queries)
+                {
+                    for (Record question : MulticastDNSUtils.extractRecords(query, Section.QUESTION))
+                    {
+                        Name questionName = question.getName();
+                        Name recordName = record.getName();
+                        int questionType = question.getType();
+                        int recordType = record.getType();
+                        int questionDClass = question.getDClass();
+                        int recordDClass = record.getDClass();
+                        
+                        if (((questionType == Type.ANY) || (questionType == recordType)) && (questionName.equals(recordName) || questionName.subdomain(recordName) || recordName.toString().endsWith("." + questionName.toString())) && ((questionDClass == DClass.ANY) || ((questionDClass & 0x7FFF) == (recordDClass & 0x7FFF))))
+                        {
+                            return true;
+                        }
+                    }
+                }
             }
             
+            return false;
+        }
+        
+        
+        Browse getBrowser()
+        {
+            return browser;
+        }
+        
+        
+        boolean matchesBrowse(final Message message)
+        {
+            if (message != null)
+            {
+                Record[] thatAnswers = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
+                
+                for (Record thatAnswer : thatAnswers)
+                {
+                    if (answersQuery(thatAnswer))
+                    {
+                        return true;
+                    }
+                }
+            }
+            
+            return false;
+        }
+        
+        
+        DNSSDListener registerListener(final DNSSDListener listener)
+        {
+            return listenerProcessor.registerListener(listener);
+        }
+        
+        
+        DNSSDListener unregisterListener(final DNSSDListener listener)
+        {
+            return listenerProcessor.unregisterListener(listener);
+        }
+    }
+    
+    
+    protected class Unregister
+    {
+        private final ServiceName serviceName;
+        
+        
+        protected Unregister(final ServiceInstance service)
+        {
+            this(service.getName());
+        }
+        
+        
+        protected Unregister(final ServiceName serviceName)
+        {
+            super();
+            this.serviceName = serviceName;
+        }
+        
+        
+        protected void close()
+        throws IOException
+        {
+        }
+        
+        
+        protected boolean unregister()
+        throws IOException
+        {
+            /*
+             * Steps to Registering a Service.
+             * 
+             * 1. Send a standard Query Response containing the service records, Opcode: QUERY, Flags: Response, Authoritative, NO ERROR
+             * a. Add PTR record to ANSWER section. TTL: 0 Ex. _mdc._tcp.local. IN PTR Test._mdc._tcp.local.
+             * b. Repeat 3 queries with a 2 second delay between each query response.
+             */
+            String domain = serviceName.getDomain();
+            Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
+            Name typeName = new Name(serviceName.getType() + "." + domain);
+            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            
+            ArrayList<Record> records = new ArrayList<Record>();
+            ArrayList<Record> additionalRecords = new ArrayList<Record>();
+            
+            records.add(new PTRRecord(typeName, DClass.IN, 0, serviceName));
+            if (!fullTypeName.equals(typeName))
+            {
+                records.add(new PTRRecord(fullTypeName, DClass.IN, 0, serviceName));
+                records.add(new PTRRecord(typeName, DClass.IN, 0, shortSRVName));
+            }
+            
+            Update update = new Update(new Name(domain));
+            for (Record record : records)
+            {
+                update.add(record);
+            }
+            
+            for (Record record : additionalRecords)
+            {
+                update.addRecord(record, Section.ADDITIONAL);
+            }
+            
+            // Updates are sent at least 2 times, one second apart, as per RFC 6762 Section 8.3
+            ResolverListener resolverListener = new ResolverListener()
+            {
+                public void handleException(final Object id, final Exception e)
+                {
+                }
+                
+                
+                public void receiveMessage(final Object id, final Message m)
+                {
+                }
+            };
+            
+            int tries = 0;
+            while (tries++ < 3)
+            {
+                querier.sendAsync(update, resolverListener);
+                
+                long retry = System.currentTimeMillis() + 2000;
+                while (System.currentTimeMillis() < retry)
+                {
+                    try
+                    {
+                        Thread.sleep(2000);
+                    } catch (InterruptedException e)
+                    {
+                        // ignore
+                    }
+                }
+            }
+            
+            Lookup lookup = new Lookup(new Name[] {serviceName.getServiceTypeName()}, Type.PTR, DClass.ANY);
             try
             {
-                browser.close();
-            } catch (IOException e)
+                Record[] results = lookup.lookupRecords();
+                return (results == null) || (results.length == 0);
+            } finally
             {
-                // ignore
+                lookup.close();
             }
         }
     }
     
     
     protected ScheduledExecutorService discoveryScheduledExecutor = null;
-
+    
+    
     protected ArrayList<ServiceDiscoveryOperation> discoveryOperations = new ArrayList<ServiceDiscoveryOperation>();
     
-
-    public ServiceInstance register(ServiceInstance service)
+    
+    public MulticastDNSService()
+    throws IOException
+    {
+        super();
+    }
+    
+    
+    public void close()
+    throws IOException
+    {
+        for (ServiceDiscoveryOperation discoveryOperation : discoveryOperations)
+        {
+            try
+            {
+                discoveryOperation.close();
+            } catch (Exception e)
+            {
+                // ignore
+            }
+        }
+    }
+    
+    public Set<Domain> getBrowseDomains(final Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Constants.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        results.addAll(getDomains(new String[] {Constants.DEFAULT_BROWSE_DOMAIN_NAME,
+                                                Constants.BROWSE_DOMAIN_NAME,
+                                                Constants.LEGACY_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+    
+    public Set<Domain> getDefaultBrowseDomains(final Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Constants.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        searchPath.addAll(Arrays.asList(Constants.ALL_MULTICAST_DNS_DOMAINS));
+        results.addAll(getDomains(new String[] {Constants.DEFAULT_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+    
+    
+    public Set<Domain> getDefaultRegistrationDomains(final Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Constants.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        searchPath.addAll(Arrays.asList(Constants.ALL_MULTICAST_DNS_DOMAINS));
+        results.addAll(getDomains(new String[] {Constants.DEFAULT_REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+    
+    
+    public Set<Domain> getRegistrationDomains(final Set<Name> searchPath)
+    {
+        Set<Domain> results = new LinkedHashSet<Domain>();
+        Name[] defaultDomains = Constants.ALL_MULTICAST_DNS_DOMAINS;
+        for (Name name : defaultDomains)
+        {
+            results.add(new Domain(name));
+        }
+        results.addAll(getDomains(new String[] {Constants.DEFAULT_REGISTRATION_DOMAIN_NAME,
+                                                Constants.REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
+        return results;
+    }
+    
+    
+    public ServiceInstance register(final ServiceInstance service)
     throws IOException
     {
         Register register = new Register(service);
@@ -844,22 +872,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
     }
     
     
-    public boolean unregister(ServiceInstance service)
-    throws IOException
-    {
-        Unregister unregister = new Unregister(service);
-        try
-        {
-            return unregister.unregister();
-        } finally
-        {
-            unregister.close();
-        }
-    }
-    
-    
     /**
-     * Starts a Service Discovery Browse Operation and returns an identifier to be used later to stop 
+     * Starts a Service Discovery Browse Operation and returns an identifier to be used later to stop
      * the Service Discovery Browse Operation.
      * 
      * @param browser An instance of a Browse object containing the mDNS/DNS Queries
@@ -867,12 +881,12 @@ public class MulticastDNSService extends MulticastDNSLookupBase
      * @return An Object that identifies the Service Discovery Browse Operation.
      * @throws IOException
      */
-    public Object startServiceDiscovery(Browse browser, DNSSDListener listener)
+    public Object startServiceDiscovery(final Browse browser, final DNSSDListener listener)
     throws IOException
     {
         discoveryScheduledExecutor = java.util.concurrent.Executors.newScheduledThreadPool(1, new ThreadFactory()
         {
-            public Thread newThread(Runnable r)
+            public Thread newThread(final Runnable r)
             {
                 Thread t = new Thread(r, "Service Discover Browser Thread");
                 t.setDaemon(true);
@@ -896,7 +910,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         
         synchronized (discoveryOperations)
         {
-            this.discoveryOperations.add(discoveryOperation);
+            discoveryOperations.add(discoveryOperation);
         }
         discoveryOperation.start();
         
@@ -907,11 +921,11 @@ public class MulticastDNSService extends MulticastDNSLookupBase
     /**
      * Stops a Service Discovery Browse Operation.
      * 
-     * @param id The object identifying the Service Discovery Browse Operation that was returned by "startServiceDiscovery" 
+     * @param id The object identifying the Service Discovery Browse Operation that was returned by "startServiceDiscovery"
      * @return true, if the Service Discovery Browse Operation was successfully stopped, otherwise false.
      * @throws IOException
      */
-    public boolean stopServiceDiscovery(Object id)
+    public boolean stopServiceDiscovery(final Object id)
     throws IOException
     {
         discoveryScheduledExecutor.shutdownNow();
@@ -924,7 +938,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 ServiceDiscoveryOperation discoveryOperation = discoveryOperations.get(pos);
                 if (discoveryOperation != null)
                 {
-                    this.discoveryOperations.remove(pos);
+                    discoveryOperations.remove(pos);
                     discoveryOperation.close();
                     return true;
                 }
@@ -939,63 +953,23 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         
         return false;
     }
-
-
-    public Set<Domain> getDefaultBrowseDomains(Set<Name> searchPath)
+    
+    
+    public boolean unregister(final ServiceInstance service)
+    throws IOException
     {
-        Set<Domain> results = new LinkedHashSet<Domain>();
-        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
-        for (Name name : defaultDomains)
+        Unregister unregister = new Unregister(service);
+        try
         {
-            results.add(new Domain(name));
-        }
-        searchPath.addAll(Arrays.asList(Lookup.ALL_MULTICAST_DNS_DOMAINS));
-        results.addAll(getDomains(new String[] {Lookup.DEFAULT_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
-        return results;
-    }
-
-
-    public Set<Domain> getBrowseDomains(Set<Name> searchPath)
-    {
-        Set<Domain> results = new LinkedHashSet<Domain>();
-        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
-        for (Name name : defaultDomains)
+            return unregister.unregister();
+        } finally
         {
-            results.add(new Domain(name));
+            unregister.close();
         }
-        results.addAll(getDomains(new String[] {Lookup.DEFAULT_BROWSE_DOMAIN_NAME, Lookup.BROWSE_DOMAIN_NAME, Lookup.LEGACY_BROWSE_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
-        return results;
-    }
-
-
-    public Set<Domain> getDefaultRegistrationDomains(Set<Name> searchPath)
-    {
-        Set<Domain> results = new LinkedHashSet<Domain>();
-        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
-        for (Name name : defaultDomains)
-        {
-            results.add(new Domain(name));
-        }
-        searchPath.addAll(Arrays.asList(Lookup.ALL_MULTICAST_DNS_DOMAINS));
-        results.addAll(getDomains(new String[] {Lookup.DEFAULT_REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
-        return results;
-    }
-
-
-    public Set<Domain> getRegistrationDomains(Set<Name> searchPath)
-    {
-        Set<Domain> results = new LinkedHashSet<Domain>();
-        Name[] defaultDomains = Lookup.ALL_MULTICAST_DNS_DOMAINS;
-        for (Name name : defaultDomains)
-        {
-            results.add(new Domain(name));
-        }
-        results.addAll(getDomains(new String[] {Lookup.DEFAULT_REGISTRATION_DOMAIN_NAME, Lookup.REGISTRATION_DOMAIN_NAME}, searchPath.toArray(new Name[searchPath.size()])));
-        return results;
     }
     
     
-    protected Set<Domain> getDomains(String[] names, Name[] path)
+    protected Set<Domain> getDomains(final String[] names, final Name[] path)
     {
         Set<Domain> results = new LinkedHashSet<Domain>();
         
@@ -1013,10 +987,10 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 lookup.setSearchPath(searchPath);
                 lookup.setQuerier(querier);
                 Domain[] domains = lookup.lookupDomains();
-                if (domains != null && domains.length > 0)
+                if ((domains != null) && (domains.length > 0))
                 {
                     List<Name> newDomains = new ArrayList<Name>();
-                    for (int index = 0; index < domains.length; index++)
+                    for (int index = 0; index < domains.length; index++ )
                     {
                         if (!results.contains(domains[index].getName()))
                         {
@@ -1050,20 +1024,60 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         
         return results;
     }
-
-
-    public void close()
-    throws IOException
+    
+    
+    public static boolean hasMulticastDomains(final Message query)
     {
-        for (ServiceDiscoveryOperation discoveryOperation : discoveryOperations)
+        Record[] records = MulticastDNSUtils.extractRecords(query, 0, 1, 2, 3);
+        if (records != null)
         {
-            try
+            for (Record record : records)
             {
-                discoveryOperation.close();
-            } catch (Exception e)
-            {
-                // ignore
+                if (isMulticastDomain(record.getName()))
+                {
+                    return true;
+                }
             }
         }
+        return false;
+    }
+    
+    
+    public static boolean hasUnicastDomains(final Message query)
+    {
+        Record[] records = MulticastDNSUtils.extractRecords(query, 0, 1, 2, 3);
+        if (records != null)
+        {
+            for (Record record : records)
+            {
+                if (!isMulticastDomain(record.getName()))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    
+    public static boolean isMulticastDomain(final Name name)
+    {
+        for (Name multicastDomain : IPv4_MULTICAST_DOMAINS)
+        {
+            if (name.equals(multicastDomain) || name.subdomain(multicastDomain))
+            {
+                return true;
+            }
+        }
+        
+        for (Name multicastDomain : IPv6_MULTICAST_DOMAINS)
+        {
+            if (name.equals(multicastDomain) || name.subdomain(multicastDomain))
+            {
+                return true;
+            }
+        }
+        
+        return false;
     }
 }
