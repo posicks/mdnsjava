@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <title>mdnsjava by posicks</title>
+
+    <link rel="stylesheet" href="stylesheets/styles.css">
+    <link rel="stylesheet" href="stylesheets/github-light.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+    <!--[if lt IE 9]>
+    <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+  </head>
+  <body>
+    <div class="wrapper">
+      <header>
+        <h1>mdnsjava</h1>
+        <p>Multicast DNS (mDNS) [RFC 6762] &amp; DNS-Based Service Discovery (DNS-SD) [RFC6763] in Java</p>
+
+        <p class="view"><a href="https://github.com/posicks/mdnsjava">View the Project on GitHub <small>posicks/mdnsjava</small></a></p>
+
+
+        <ul>
+          <li><a href="https://github.com/posicks/mdnsjava/zipball/master">Download <strong>ZIP File</strong></a></li>
+          <li><a href="https://github.com/posicks/mdnsjava/tarball/master">Download <strong>TAR Ball</strong></a></li>
+          <li><a href="https://github.com/posicks/mdnsjava">View On <strong>GitHub</strong></a></li>
+        </ul>
+      </header>
+      <section>
+        <h1>
+<a id="multicast-dns-mdns--dns-based-service-discovery-dns-sd-in-java" class="anchor" href="#multicast-dns-mdns--dns-based-service-discovery-dns-sd-in-java" aria-hidden="true"><span class="octicon octicon-link"></span></a>Multicast DNS (mDNS) &amp; DNS-Based Service Discovery (DNS-SD) in Java</h1>
+
+<h2>
+<a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
+
+<p>The Multicast DNS (mDNS) [<a href="http://tools.ietf.org/html/rfc6762">RFC 6762</a>] &amp; DNS-Based Service Discovery (DNS-SD) [<a href="http://tools.ietf.org/html/rfc6763">RFC 6763</a>] in Java, mdnsjava for short, project is an extension of the dnsjava [<a href="http://www.dnsjava.org/">dnsjava.org</a>] project that implements Multicast DNS (mDNS) and DNS-Based Service Discovery (DNS-SD) in Java. mdnsjava does not artificially bind the mDNS and DNS-based Service Discovery functionality into a single combined API, instead, treating each as a separate function, independent from but related to the other. Thus, allowing clients to use Multicast DNS (mDNS) as a substitute for DNS and not just for service discovery.</p>
+
+<h3>
+<a id="features-version-215" class="anchor" href="#features-version-215" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features, Version 2.1.5</h3>
+
+<ul>
+<li>Multicast DNS (mDNS) Responder</li>
+<li>Multicast DNS (mDNS) Querier</li>
+<li>Service Registration/Unregistration</li>
+<li>Browsing for Services</li>
+<li>Browsing for DNS/mDNS Resource Records</li>
+<li>Resolving/Looking up Services synchronously and asynchronously</li>
+<li>Resolving/Looking up DNS/mDNS Resource Records synchronously and asynchronously</li>
+<li>Tested with dnsjava versions 2.1.4, 2.1.5, and 2.1.6.</li>
+</ul>
+
+<h3>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dependencies</h3>
+
+<p>This project depends on:</p>
+
+<ul>
+<li>dnsjava.org project, version 2.1.5 or higher. (works version 2.1.4 and may work with early versions)</li>
+<li>Java SE 1.5 or higher</li>
+</ul>
+
+<h3>
+<a id="command-line-tool-usage" class="anchor" href="#command-line-tool-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Command Line Tool Usage</h3>
+
+<pre><code>$java -jar mdnsjava.jar dnssd
+
+Command Line:  dnssd &lt;option&gt; [parameters] 
+
+dnssd -E                         (Enumerate recommended registration domains)
+dnssd -F                             (Enumerate recommended browsing domains)
+dnssd -B        &lt;Type&gt; [&lt;Domain&gt;]             (Browse for services instances)
+dnssd -L &lt;Name&gt; &lt;Type&gt; [&lt;Domain&gt;]                (Look up a service instance)
+dnssd -R &lt;Name&gt; &lt;Type&gt; &lt;Domain&gt; &lt;Port&gt; &lt;Host&gt; [&lt;TXT&gt;...] (Register a service)
+dnssd -Q &lt;FQDN&gt; &lt;rrtype&gt; &lt;rrclass&gt;        (Generic query for any record type)
+dnssd -G v4/v6/v4v6 &lt;Hostname&gt;         (Get address information for hostname)
+dnssd -V           (Get version of currently running daemon / system service)
+$
+</code></pre>
+
+<h3>
+<a id="api-usage" class="anchor" href="#api-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>API Usage</h3>
+
+<p>Browse for Browse and Registration Domains using the default DNS search path</p>
+
+<pre><code>Resolve resolve = new Resolve(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, 
+                              MulticastDNSService.REGISTRATION_DOMAIN_NAME,
+                              MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, 
+                              MulticastDNSService.BROWSE_DOMAIN_NAME, 
+                             `MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+Domain[] domains = resolve.resolveDomains();
+for (Domain domain : domains)
+{
+    System.out.println(domain);
+}
+resolve.close();
+</code></pre>
+
+<p>Browsing for Services. Receiving events for each service discovered and removed</p>
+
+<pre><code>Browse browse = new Browse(serviceTypes);
+browse.start(new DNSSDListener()
+{
+    public void serviceDiscovered(Object id, ServiceInstance service)
+    {
+        System.out.println("Service Discovered - " + service);
+    }
+
+    public void serviceRemoved(Object id, ServiceInstance service)
+    {
+        System.out.println("Service Removed - " + service);
+    }
+
+    public void handleException(Object id, Exception e)
+    {
+        System.err.println("Exception: " + e.getMessage());
+        e.printStackTrace(System.err);
+    }
+});
+while (true)
+{
+    Thread.sleep(10);
+    if (System.in.read() == 'q')
+    {
+        break;
+    }
+}
+browse.close();
+</code></pre>
+
+<p>Resolve (Lookup) a Service, (one shot synchronously)</p>
+
+<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.");
+ServiceInstance[] services = resolve.resolveServices();
+for (ServiceInstance service : services)
+{
+    System.out.println(service);
+}
+</code></pre>
+
+<p>Resolve (Lookup) a Records, (one shot synchronously)</p>
+
+<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = resolve.resolveRecords();
+for (Record record : records)
+{
+    System.out.println(records);
+}
+</code></pre>
+
+<p>Resolve (Lookup) a Records asynchronously, (one shot asynchronously)</p>
+
+<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = resolve.resolveRecordsAsych(new RecordListener()
+{
+    public void receiveRecord(Object id, Record record)
+    {
+        System.out.println("Record Found - " + record);
+    }
+
+    public void handleException(Object id, Exception e)
+    {
+        System.err.println("Exception: " + e.getMessage());
+        e.printStackTrace(System.err);
+    }
+});
+Thread.sleep(1000);
+resolve.close();
+</code></pre>
+
+<p>Register and Unregister a Service
+    MulticastDNSService mDNSService = new MulticastDNSService();
+    ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname, MulticastDNSService.DEFAULT_SRV_TTL, addresses, txtValues);
+    ServiceInstance registeredService = mDNSService.register(service);
+    if (registeredService != null)
+    {
+        System.out.println("Services Successfully Registered: \n\t" + registeredService);
+    } else
+    {
+        System.err.println("Services Registration Failed!");
+    }
+    while (true)
+    {
+        Thread.sleep(10);
+        if (System.in.read() == 'q')
+        {
+            if (mDNSService.unregister(registeredService))
+            {
+                System.out.println("Services Successfully Unregistered: \n\t" + service);
+            } else
+            {
+                System.err.println("Services Unregistration Failed!");
+            }
+            break;
+        }
+    }
+    mDNSService.close();</p>
+
+<h3>
+<a id="workaround-for-java-ipv6-issues" class="anchor" href="#workaround-for-java-ipv6-issues" aria-hidden="true"><span class="octicon octicon-link"></span></a>Workaround for Java IPv6 Issues</h3>
+
+<p>Numerous bugs have been reported with Java's support of IPv6. Among them is an issue where the IP header's Time To Live (TTL) value for datagrams does not get set properly. If the IP header's Time To Live (TTL) value is not set to 255, then the Java VM must be started with IPv6 disabled, using the "-Djava.net.preferIPv4Stack=true" VM option. This is true for IPv4 datagrams as well. Disabling IPv6 fixes the TTL issue for IPv4.</p>
+
+<p>For Example:</p>
+
+<pre><code>java -Djava.net.preferIPv4Stack=true -jar mdnsjava.jar dnssd -E
+</code></pre>
+
+<h3>
+<a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+
+<p>mdnsjava was created by Steve Posick (<a href="https://github.com/posicks" class="user-mention">@posicks</a>) as part of a Proof of Concept application for the Society of Motion Picture and Television Engineers (<a href="http://www.smpte.org/">SMPTE</a>) suite of standards on Media &amp; Device Control over IP networks, [<a href="http://standards.smpte.org/search?fulltext=2071&amp;smptes-status=in-force&amp;submit=yes&amp;content-group=smptes">SMPTE ST2071</a>]. The SMPTE ST2071 suite of standards defines an open standard for the representation of devices and services within an Internet of Things (IoT) using uniquely identified feature interfaces, similar in principle to uniquely identified Microservice interfaces, and defines extensions for the DNS-SD protocol that allow for the service discovery DNS infrastructure to be separated from the name resolution DNS infrastructure.</p>
+
+<h3>
+<a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+
+<p>Having trouble with Pages? Check out our documentation or <a href="@posicks">contact support</a>.</p>
+      </section>
+      <footer>
+        <p>This project is maintained by <a href="https://github.com/posicks">posicks</a></p>
+        <p><small>Hosted on GitHub Pages &mdash; Theme by <a href="https://github.com/orderedlist">orderedlist</a></small></p>
+      </footer>
+    </div>
+    <script src="javascripts/scale.fix.js"></script>
+              <script type="text/javascript">
+            var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
+            document.write(unescape("%3Cscript src='" + gaJsHost + "google-analytics.com/ga.js' type='text/javascript'%3E%3C/script%3E"));
+          </script>
+          <script type="text/javascript">
+            try {
+              var pageTracker = _gat._getTracker("UA-46703744-2");
+            pageTracker._trackPageview();
+            } catch(err) {}
+          </script>
+
+  </body>
+</html>
