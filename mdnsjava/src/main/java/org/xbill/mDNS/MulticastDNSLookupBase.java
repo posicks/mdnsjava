@@ -450,26 +450,54 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     protected void buildQueries()
     {
-        if ((names != null) && (searchPath != null))
+        if ((this.names != null) && (searchPath != null))
         {
-            Message[] newQueries = new Message[] {new Message()};
-            for (int index = 0; index < names.length; index++ )
+        	ArrayList searchNames = new ArrayList();
+        	ArrayList newQueries = new ArrayList();
+        	Message multicastQuery = null;
+            for (int index = 0; index < this.names.length; index++)
             {
-                Name name = names[index];
+                Name name = this.names[index];
                 if (name.isAbsolute())
                 {
-                    newQueries[0].addRecord(Record.newRecord(name, type, dclass), Section.QUESTION);
+                	if (MulticastDNSService.isMulticastDomain(name))
+                	{
+                		if (multicastQuery == null)
+                		{
+                			multicastQuery = Message.newQuery(Record.newRecord(name, type, dclass));
+                		} else
+                		{
+                			multicastQuery.addRecord(Record.newRecord(name, type, dclass), Section.QUESTION);
+                		}
+                	} else
+                	{
+                		newQueries.add(Message.newQuery(Record.newRecord(name, type, dclass)));
+                	}
+                    searchNames.add(name);
                 } else
                 {
-                    newQueries = new Message[searchPath.length];
                     for (int i = 0; i < searchPath.length; i++ )
                     {
-                        newQueries[i] = new Message();
                         Name absoluteName;
                         try
                         {
                             absoluteName = Name.concatenate(name, searchPath[i]);
-                            newQueries[i].addRecord(Record.newRecord(absoluteName, type, dclass), Section.QUESTION);
+	                    	if (MulticastDNSService.isMulticastDomain(searchPath[i]))
+	                    	{
+	                    		// Use a single Message for Multicast Queries.
+	                    		if (multicastQuery == null)
+	                    		{
+	                    			multicastQuery = Message.newQuery(Record.newRecord(absoluteName, type, dclass));
+	                    		} else
+	                    		{
+	                    			multicastQuery.addRecord(Record.newRecord(absoluteName, type, dclass), Section.QUESTION);
+	                    		}
+	                    	} else
+	                    	{
+	                    		// Create a Message for each Unicast Query.
+	                        	newQueries.add(Message.newQuery(Record.newRecord(absoluteName, type, dclass)));
+	                    	}
+                            searchNames.add(absoluteName);
                         } catch (NameTooLongException e)
                         {
                             if (mdnsVerbose)
@@ -482,7 +510,12 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                 }
             }
             
-            queries = newQueries;
+            if (multicastQuery != null)
+            {
+            	newQueries.add(multicastQuery);
+            }
+            this.names = (Name[]) searchNames.toArray(new Name[searchNames.size()]);
+            this.queries = (Message[]) newQueries.toArray(new Message[newQueries.size()]);
         }
     }
     
