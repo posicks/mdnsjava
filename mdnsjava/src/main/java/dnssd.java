@@ -25,6 +25,8 @@ import org.xbill.mDNS.ServiceName;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class dnssd
 {
+    private static final String VERSION = "mdnsjava: 2.1.7";
+    
     private static final String COMMAND_LINE =
     "------------------------------------------------------------------------------\n" +
     "| Command Line: dnssd <option> [parameters]                                  |\n" +
@@ -50,15 +52,17 @@ public class dnssd
      * Test program
      * @param args The input parameters
      * 
+     * <code>
      * Command Line:
      * dnssd -E                         (Enumerate recommended registration domains)
      * dnssd -F                             (Enumerate recommended browsing domains)
      * dnssd -B        <Type> [<Domain>]             (Browse for services instances)
-     * dnssd -L <Name> <Type> <Domain>                  (Look up a service instance)
+     * dnssd -L <Name> <Type> [<Domain>]                (Look up a service instance)
      * dnssd -R <Name> <Type> <Domain> <Port> <Host> [<TXT>...] (Register a service)
-     * dnssd -Z        <Type> <Domain>          (Output results in Zone File format)
-     * dnssd -Q        <FQDN> <rrtype> <rrclass> (Generic query for any record type)
-     * dnssd -C        <FQDN> <rrtype> <rrclass>   (Query; reconfirming each result)
+     * dnssd -Q <FQDN> <rrtype> <rrclass>        (Generic query for any record type)
+     * dnssd -G v4/v6/v4v6 <Hostname>         (Get address information for hostname)
+     * dnssd -V           (Get version of currently running daemon / system service)
+     * </code>
      */
     public static void main(final String[] args)
     throws Exception
@@ -89,13 +93,16 @@ public class dnssd
                 
                 String temp = args[0];
                 
-                if ((temp != null) && ((temp.length() == 2) || (temp.length() == 3)) &&
+                if (temp != null && (temp.length() == 2 || temp.length() == 3) &&
                 (temp.startsWith("-") || temp.startsWith("--")))
                 {
                     Name[] browseDomains;
                     ArrayList domainNames;
                     Name[] serviceTypes;
                     Domain[] domains = null;
+                    Record[] records = null;
+                    int type = Type.ANY;
+                    int dclass = DClass.ANY;
                     char option = temp.charAt(temp.length() - 1);
                     ExecutionTimer._start();
                     switch (option)
@@ -112,7 +119,7 @@ public class dnssd
                                 lookup.close();
                             }
                             System.out.println("Registration Domains:");
-                            printArray(domains, "\t%s\n");
+                            dnssd.printArray(domains, "\t%s\n");
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'F':
@@ -127,12 +134,12 @@ public class dnssd
                                 lookup.close();
                             }
                             System.out.println("Browse Domains:");
-                            printArray(domains, "\t%s\n");
+                            dnssd.printArray(domains, "\t%s\n");
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
                         case 'B':
                             // Browse for service instances
-                            if ((args.length < 2) || (args[1] == null) || (args[1].length() == 0))
+                            if (args.length < 2 || args[1] == null || args[1].length() == 0)
                             {
                                 throw new IllegalArgumentException("Too few arguments for -B option");
                             }
@@ -151,11 +158,11 @@ public class dnssd
                                     lookup.close();
                                 }
                                 
-                                if ((domains != null) && (domains.length > 0))
+                                if (domains != null && domains.length > 0)
                                 {
                                     for (int index = 0; index < domains.length; index++)
                                     {
-                                        if ((domains[index] != null) && !domainNames.contains(domains[index]))
+                                        if (domains[index] != null && !domainNames.contains(domains[index]))
                                         {
                                             domainNames.add(domains[index].getName());
                                         }
@@ -175,7 +182,7 @@ public class dnssd
                                 serviceTypes[i] = new Name(args[1], browseDomains[i]);
                             }
                             System.out.println("Browsing for Services of the following types:");
-                            printArray(serviceTypes, "\t%s\n");
+                            dnssd.printArray(serviceTypes, "\t%s\n");
                             System.out.println();
                             System.out.println("Services Found:");
                             ExecutionTimer._start();
@@ -185,7 +192,7 @@ public class dnssd
                             {
                                 public void handleException(final Object id, final Exception e)
                                 {
-                                    if (!((e instanceof IOException) && "no route to host".equalsIgnoreCase(e.getMessage())))
+                                    if (!(e instanceof IOException && "no route to host".equalsIgnoreCase(e.getMessage())))
                                     {
                                         System.err.println("Exception: " + e.getMessage());
                                         e.printStackTrace(System.err);
@@ -224,7 +231,7 @@ public class dnssd
                             break;
                         case 'L':
                             // Lookup a service
-                            if ((args.length < 3) || (args[2] == null) || (args[2].length() == 0))
+                            if (args.length < 3 || args[2] == null || args[2].length() == 0)
                             {
                                 throw new IllegalArgumentException("Too few arguments for -L option");
                             }
@@ -243,11 +250,11 @@ public class dnssd
                                     lookup.close();
                                 }
                                 
-                                if ((domains != null) && (domains.length > 0))
+                                if (domains != null && domains.length > 0)
                                 {
                                     for (int index = 0; index < domains.length; index++)
                                     {
-                                        if ((domains[index] != null) && !domainNames.contains(domains[index]))
+                                        if (domains[index] != null && !domainNames.contains(domains[index]))
                                         {
                                             domainNames.add(domains[index].getName());
                                         }
@@ -268,13 +275,13 @@ public class dnssd
                             }
                             ExecutionTimer._start();
                             System.out.println("Lookup Service :");
-                            printArray(serviceTypes, "\t%s\n");
+                            dnssd.printArray(serviceTypes, "\t%s\n");
                             System.out.println();
                             System.out.println("Services Found:");
                             lookup = new Lookup(serviceTypes);
                             try
                             {
-                                printArray(lookup.lookupServices(), "\t%s\n");
+                                dnssd.printArray(lookup.lookupServices(), "\t%s\n");
                             } finally
                             {
                                 lookup.close();
@@ -297,7 +304,7 @@ public class dnssd
                             String host = args[5];
                             int port = Integer.parseInt(args[4]);
                             
-                            if ((host == null) || (host.length() == 0))
+                            if (host == null || host.length() == 0)
                             {
                                 String machineName = MulticastDNSUtils.getMachineName();
                                 if (machineName == null)
@@ -305,7 +312,7 @@ public class dnssd
                                     host = MulticastDNSUtils.getHostName();
                                 } else
                                 {
-                                    host = (machineName.endsWith(".") ? machineName : machineName + ".");
+                                    host = machineName.endsWith(".") ? machineName : machineName + ".";
                                 }
                             }
                             Name hostname = new Name(host);
@@ -318,7 +325,7 @@ public class dnssd
                             {
                             }
                             
-                            if ((addresses == null) || (addresses.length == 0))
+                            if (addresses == null || addresses.length == 0)
                             {
                                 addresses = MulticastDNSUtils.getLocalAddresses();
                             }
@@ -357,12 +364,12 @@ public class dnssd
                             {
                                 throw new IllegalArgumentException("Too few arguments for -" + option + " option");
                             }
-                            int type = Type.value(args[2], true);
+                            type = Type.value(args[2], true);
                             if (type < 0)
                             {
                                 throw new IllegalArgumentException("Invalid Type \"" + args[2] + "\" specified.");
                             }
-                            int dclass = DClass.value(args[3]);
+                            dclass = DClass.value(args[3]);
                             if (dclass < 0)
                             {
                                 throw new IllegalArgumentException("Invalid DClass \"" + args[3] + "\" specified.");
@@ -371,18 +378,65 @@ public class dnssd
                             lookup = new Lookup(new Name[]{new Name(args[1])}, type, dclass);
                             try
                             {
-                                Record[] records = lookup.lookupRecords();
+                                records = lookup.lookupRecords();
                                 System.out.println("Query Resource Records :\n\tName: " + args[1] + ", Type: " + Type.string(type) + ", DClass: " + DClass.string(dclass));
                                 System.out.println();
                                 System.out.println("Resource Records Found:");
-                                printArray(records, "\t%s\n");
+                                dnssd.printArray(records, "\t%s\n");
                             } finally
                             {
                                 lookup.close();
                             }
                             System.out.println("\n" + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
                             break;
-                        case 'C':
+                        case 'G':
+                            if (args.length < 2)
+                            {
+                                throw new IllegalArgumentException("Too few arguments for -" + option + " option");
+                            }
+                            if (args.length > 2)
+                            {
+                                type = Type.value(args[2], true);
+                                if (type < 0)
+                                {
+                                    throw new IllegalArgumentException("Invalid Type \"" + args[2] + "\" specified.");
+                                }
+                            }
+                            if (args.length > 3)
+                            {
+                                dclass = DClass.value(args[3]);
+                                if (dclass < 0)
+                                {
+                                    throw new IllegalArgumentException("Invalid DClass \"" + args[3] + "\" specified.");
+                                }
+                            }
+                            
+                            Name name = new Name(args[1]);
+                            Name[] names;
+                            if (!name.isAbsolute() && name.labels() > 1)
+                            {
+                            	names = new Name[]{name, new Name(args[1] + ".")};
+                            } else
+                            {
+                            	names = new Name[]{name};
+                            }
+                            lookup = new Lookup(names, type, dclass);
+                            try
+                            {
+                                records = lookup.lookupRecords();
+                            } finally
+                            {
+                                lookup.close();
+                            }
+                            
+                            System.out.println("Lookup Names:");
+                            dnssd.printArray(lookup.getNames(), "\t%s\n");
+                            System.out.println();
+                            System.out.println("Resource Records Found:");
+                            dnssd.printArray(records, "\t%s\n");
+                            break;
+                        case 'V':
+                            System.out.println("\n" + dnssd.VERSION);
                             break;
                         default:
                             throw new IllegalArgumentException("Invalid option \"" + args[0] + "\" specified!");
@@ -397,7 +451,7 @@ public class dnssd
             }
         } catch (IllegalArgumentException e)
         {
-            printHelp(e.getMessage());
+            dnssd.printHelp(e.getMessage());
         } finally
         {
             System.out.println("\nTotal " + timingBuilder.toString() + " - took " + ExecutionTimer._took(TimeUnit.SECONDS) + " seconds.");
@@ -409,7 +463,7 @@ public class dnssd
     
     private static void printArray(final Object[] array, final String... format)
     {
-        if ((array != null) && (format != null) && (array.length > 0) && (format.length > 0))
+        if (array != null && format != null && array.length > 0 && format.length > 0)
         {
             int startFormat = 0;
             int endFormat = format.length - 1;
@@ -418,7 +472,7 @@ public class dnssd
             // Process Headers
             if (format.length > 1)
             {
-                while ((startFormat < endFormat) && !format[startFormat].contains("%"))
+                while (startFormat < endFormat && !format[startFormat].contains("%"))
                 {
                     System.out.print(format[startFormat++]);
                 }
@@ -427,7 +481,7 @@ public class dnssd
             // Process Footers
             if (format.length > 1)
             {
-                while ((endFormat > startFormat) && !format[endFormat].contains("%"))
+                while (endFormat > startFormat && !format[endFormat].contains("%"))
                 {
                     endFormat--;
                 }
@@ -435,7 +489,7 @@ public class dnssd
             
             // Get Last Element Format (last format that is not a footer)
             lastElementFormat = endFormat;
-            if ((endFormat - startFormat) > 0)
+            if (endFormat - startFormat > 0)
             {
                 endFormat--;
             }
@@ -443,7 +497,7 @@ public class dnssd
             int index = 0;
             int fIndex = startFormat;
             
-            for (; index < (array.length - 1);)
+            for (; index < array.length - 1;)
             {
                 while (!format[fIndex].contains("%"))
                 {
@@ -486,10 +540,10 @@ public class dnssd
     
     private static void printHelp(final String message)
     {
-        if ((message != null) && (message.length() > 0))
+        if (message != null && message.length() > 0)
         {
             System.out.println("\n==>>" + message + "<<==\n");
         }
-        System.out.println(COMMAND_LINE);
+        System.out.println(dnssd.COMMAND_LINE);
     }
 }
