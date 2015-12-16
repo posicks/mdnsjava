@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.text.DecimalFormat;
 

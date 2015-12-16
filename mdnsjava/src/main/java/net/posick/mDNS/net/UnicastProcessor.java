@@ -1,4 +1,4 @@
-package org.xbill.mDNS.net;
+package net.posick.mDNS.net;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -14,7 +14,8 @@ import java.util.Iterator;
 import java.util.Map;
 
 import org.xbill.DNS.Options;
-import org.xbill.mDNS.Querier;
+
+import net.posick.mDNS.Querier;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class UnicastProcessor extends NetworkProcessor

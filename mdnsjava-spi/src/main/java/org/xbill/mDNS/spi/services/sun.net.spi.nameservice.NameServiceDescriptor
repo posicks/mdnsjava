@@ -1,1 +1,1 @@
-org.xbill.mDNS.spi.MulticastDNSJavaNameServiceDescriptor
+net.posick.mDNS.spi.MulticastDNSJavaNameServiceDescriptor

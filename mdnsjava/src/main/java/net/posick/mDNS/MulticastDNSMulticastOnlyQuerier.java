@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -30,13 +30,14 @@ import org.xbill.DNS.Section;
 import org.xbill.DNS.SetResponse;
 import org.xbill.DNS.TSIG;
 import org.xbill.DNS.WireParseException;
-import org.xbill.mDNS.MulticastDNSCache.CacheMonitor;
-import org.xbill.mDNS.net.DatagramProcessor;
-import org.xbill.mDNS.net.NetworkProcessor;
-import org.xbill.mDNS.net.NetworkProcessor.Packet;
-import org.xbill.mDNS.utils.Executors;
-import org.xbill.mDNS.utils.ListenerProcessor;
-import org.xbill.mDNS.utils.Wait;
+
+import net.posick.mDNS.MulticastDNSCache.CacheMonitor;
+import net.posick.mDNS.net.DatagramProcessor;
+import net.posick.mDNS.net.NetworkProcessor;
+import net.posick.mDNS.net.NetworkProcessor.Packet;
+import net.posick.mDNS.utils.Executors;
+import net.posick.mDNS.utils.ListenerProcessor;
+import net.posick.mDNS.utils.Wait;
 
 /**
  * Implements the Multicast DNS portions of the MulticastDNSQuerier in accordance to RFC 6762.

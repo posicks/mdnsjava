@@ -1,4 +1,4 @@
-package org.xbill.mDNS.net;
+package net.posick.mDNS.net;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -11,8 +11,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Options;
-import org.xbill.mDNS.utils.ExecutionTimer;
-import org.xbill.mDNS.utils.Executors;
+
+import net.posick.mDNS.utils.ExecutionTimer;
+import net.posick.mDNS.utils.Executors;
 
 public abstract class NetworkProcessor implements Runnable, Closeable
 {

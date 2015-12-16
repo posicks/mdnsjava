@@ -1,7 +1,7 @@
 /**
  * 
  */
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -23,7 +23,7 @@ public interface Querier extends Resolver, Closeable
     
     static final int DEFAULT_TIMEOUT = 6 * 1000;
     
-    static final int DEFAULT_RESPONSE_WAIT_TIME = 250;
+    static final int DEFAULT_RESPONSE_WAIT_TIME = 500;
     
     static final int DEFAULT_RETRY_INTERVAL = 1000;
     

@@ -10,15 +10,16 @@ import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.Browse;
-import org.xbill.mDNS.Constants;
-import org.xbill.mDNS.DNSSDListener;
-import org.xbill.mDNS.Lookup;
-import org.xbill.mDNS.Lookup.Domain;
-import org.xbill.mDNS.utils.ExecutionTimer;
-import org.xbill.mDNS.MulticastDNSService;
-import org.xbill.mDNS.ServiceInstance;
-import org.xbill.mDNS.ServiceName;
+
+import net.posick.mDNS.Browse;
+import net.posick.mDNS.Constants;
+import net.posick.mDNS.DNSSDListener;
+import net.posick.mDNS.Lookup;
+import net.posick.mDNS.MulticastDNSService;
+import net.posick.mDNS.ServiceInstance;
+import net.posick.mDNS.ServiceName;
+import net.posick.mDNS.Lookup.Domain;
+import net.posick.mDNS.utils.ExecutionTimer;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class dnssd

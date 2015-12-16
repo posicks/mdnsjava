@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.IOException;
 import java.net.UnknownHostException;
@@ -20,7 +20,8 @@ import org.xbill.DNS.Resolver;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TSIG;
-import org.xbill.mDNS.utils.ListenerProcessor;
+
+import net.posick.mDNS.utils.ListenerProcessor;
 
 /**
  * The MulticastDNSQuerier is a responder that integrates multicast and unicast DNS in accordance to the

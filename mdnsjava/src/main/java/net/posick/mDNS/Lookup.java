@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -19,7 +19,8 @@ import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.utils.Wait;
+
+import net.posick.mDNS.utils.Wait;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Lookup extends MulticastDNSLookupBase

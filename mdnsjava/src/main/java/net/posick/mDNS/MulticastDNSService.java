@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -34,10 +34,10 @@ import org.xbill.DNS.Section;
 import org.xbill.DNS.TXTRecord;
 import org.xbill.DNS.Type;
 import org.xbill.DNS.Update;
-import org.xbill.mDNS.Lookup.Domain;
-import org.xbill.mDNS.utils.Executors;
-// import java.util.concurrent.Executors;
-import org.xbill.mDNS.utils.ListenerProcessor;
+
+import net.posick.mDNS.Lookup.Domain;
+import net.posick.mDNS.utils.Executors;
+import net.posick.mDNS.utils.ListenerProcessor;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class MulticastDNSService extends MulticastDNSLookupBase

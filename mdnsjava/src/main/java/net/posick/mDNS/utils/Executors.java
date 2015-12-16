@@ -1,4 +1,4 @@
-package org.xbill.mDNS.utils;
+package net.posick.mDNS.utils;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -9,7 +9,8 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Options;
-import org.xbill.mDNS.net.NetworkProcessor;
+
+import net.posick.mDNS.net.NetworkProcessor;
 
 public class Executors
 {

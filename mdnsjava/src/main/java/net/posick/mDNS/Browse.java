@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.IOException;
 import java.util.LinkedList;
@@ -16,8 +16,9 @@ import org.xbill.DNS.Record;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.utils.Executors;
-import org.xbill.mDNS.utils.ListenerProcessor;
+
+import net.posick.mDNS.utils.Executors;
+import net.posick.mDNS.utils.ListenerProcessor;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase

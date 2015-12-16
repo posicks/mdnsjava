@@ -1,7 +1,8 @@
-package org.xbill.mDNS.utils;
+package net.posick.mDNS.utils;
 
 import org.xbill.DNS.Options;
-import org.xbill.mDNS.Querier;
+
+import net.posick.mDNS.Querier;
 
 /**
  * The Wait utility provides default wait logic, such as waiting for responses.
@@ -23,7 +24,7 @@ public class Wait
         synchronized (monitor)
         {
             long waitTill = waitTill();
-            while (monitor.iterator().hasNext() && System.currentTimeMillis() < waitTill)
+            while (!monitor.iterator().hasNext() && System.currentTimeMillis() < waitTill)
             {
                 try
                 {

@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package net.posick.mDNS;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -30,7 +30,8 @@ import org.xbill.DNS.Record;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.SetResponse;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.utils.Executors;
+
+import net.posick.mDNS.utils.Executors;
 
 /**
  * A cache of mDNS records and responses. The cache obeys TTLs, so items are

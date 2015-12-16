@@ -3,4 +3,4 @@
  * 
  * @author Steve Posick
  */
-package org.xbill.mDNS.net;
+package net.posick.mDNS.net;

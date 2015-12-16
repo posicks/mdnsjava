@@ -3,10 +3,11 @@ import java.net.InetAddress;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.Record;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.Lookup;
-import org.xbill.mDNS.MulticastDNSService;
-import org.xbill.mDNS.ServiceInstance;
-import org.xbill.mDNS.ServiceName;
+
+import net.posick.mDNS.Lookup;
+import net.posick.mDNS.MulticastDNSService;
+import net.posick.mDNS.ServiceInstance;
+import net.posick.mDNS.ServiceName;
 
 
 public class Tester

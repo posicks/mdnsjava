@@ -1,4 +1,4 @@
-package org.xbill.mDNS.net;
+package net.posick.mDNS.net;
 
 import java.io.IOException;
 import java.net.DatagramPacket;

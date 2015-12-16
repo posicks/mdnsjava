@@ -1,4 +1,4 @@
-package org.xbill.mDNS.utils;
+package net.posick.mDNS.utils;
 
 import java.io.Closeable;
 import java.io.IOException;
