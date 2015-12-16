@@ -3,6 +3,9 @@
 ## Introduction
 The Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] & DNS-Based Service Discovery (DNS-SD) [[RFC 6763](http://tools.ietf.org/html/rfc6763)] in Java (mdnsjava) project is an extension of dnsjava ([dnsjava.org](http://www.dnsjava.org/)) that implements Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] and DNS-Based Service Discovery (DNS-SD) [[RFC 6763](http://tools.ietf.org/html/rfc6763)] in Java (aka. Bonjour in Java). Unlike other mDNS/DNS-SD implementations mdnsjava does not artificially bind the mDNS and DNS-SD functionality into a single API, instead treating each as a separate feature that is independent from, but related to, the other. This allows clients to use Multicast DNS (mDNS) [RFC 6762](http://tools.ietf.org/html/rfc6762) for name resolution without having to worry about service discovery and simplifies the use of DNS-Base Service Discovery using plain old Unicast DNS (mDNS can be used as a substitiute for DNS for name resolution and DNS can be used as a substitute for mDNS for service discovery).
 
+### Version 2.0.0
+*  **Changed Package to net.posick.mdns** 
+
 ### Features
 
 * Multicast DNS (mDNS) Responder
