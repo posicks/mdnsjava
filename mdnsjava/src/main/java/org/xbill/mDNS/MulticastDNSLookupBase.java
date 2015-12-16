@@ -116,12 +116,9 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     protected Name[] names;
     
-    
     protected Querier querier;
     
-    
     protected Name[] searchPath;
-    
     
     protected int type = Type.ANY;
     
@@ -133,17 +130,20 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     protected boolean mdnsVerbose;
     
+    
     public MulticastDNSLookupBase(final Name... names)
     throws IOException
     {
         this(names, Type.ANY, DClass.ANY);
     }
     
+    
     public MulticastDNSLookupBase(final Name[] names, final int type)
     throws IOException
     {
         this(names, Type.ANY, DClass.ANY);
     }
+    
     
     public MulticastDNSLookupBase(final Name[] names, final int type, final int dclass)
     throws IOException
@@ -155,6 +155,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
         this.dclass = dclass;
         buildQueries();
     }
+    
     
     public MulticastDNSLookupBase(final String... names)
     throws IOException

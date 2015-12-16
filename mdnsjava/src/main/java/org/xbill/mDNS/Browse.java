@@ -16,11 +16,13 @@ import org.xbill.DNS.Record;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.Type;
+import org.xbill.mDNS.utils.Executors;
+import org.xbill.mDNS.utils.ListenerProcessor;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
-    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.scheduledExecutor;
+    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
     
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 

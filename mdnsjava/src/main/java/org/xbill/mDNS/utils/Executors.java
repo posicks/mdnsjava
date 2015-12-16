@@ -1,51 +1,53 @@
-package org.xbill.mDNS;
+package org.xbill.mDNS.utils;
 
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Options;
+import org.xbill.mDNS.net.NetworkProcessor;
 
 public class Executors
 {
-    static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
+    public static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
     
-    static final int CORE_THREADS_NETWORK_EXECUTOR = 5;
+    public static final int CORE_THREADS_NETWORK_EXECUTOR = 5;
     
-    static final int MAX_THREADS_NETWORK_EXECUTOR = Integer.MAX_VALUE;
+    public static final int MAX_THREADS_NETWORK_EXECUTOR = Integer.MAX_VALUE;
     
-    static final int TTL_THREADS_NETWORK_EXECUTOR = 10000;
+    public static final int TTL_THREADS_NETWORK_EXECUTOR = 10000;
     
-    static final int QUEUE_SIZE_NETWORK_EXECUTOR = 50;
+    public static final int QUEUE_SIZE_NETWORK_EXECUTOR = 50;
     
-    static final int DEFAULT_CACHED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
+    public static final int DEFAULT_CACHED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
     
-    static final int CORE_THREADS_CACHED_EXECUTOR = 1;
+    public static final int CORE_THREADS_CACHED_EXECUTOR = 1;
     
-    static final int MAX_THREADS_CACHED_EXECUTOR = Integer.MAX_VALUE;
+    public static final int MAX_THREADS_CACHED_EXECUTOR = Integer.MAX_VALUE;
     
-    static final int TTL_THREADS_CACHED_EXECUTOR = 10000;
+    public static final int TTL_THREADS_CACHED_EXECUTOR = 10000;
     
-    static final int QUEUE_SIZE_CACHED_EXECUTOR = 5;
+    public static final int QUEUE_SIZE_CACHED_EXECUTOR = 5;
     
-    static final int DEFAULT_SCHEDULED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
+    public static final int DEFAULT_SCHEDULED_THREAD_PRIORITY = Thread.NORM_PRIORITY;
     
-    static final int CORE_THREADS_SCHEDULED_EXECUTOR = 5;
+    public static final int CORE_THREADS_SCHEDULED_EXECUTOR = 5;
     
-    static final int MAX_THREADS_SCHEDULED_EXECUTOR = Integer.MAX_VALUE;
+    public static final int MAX_THREADS_SCHEDULED_EXECUTOR = Integer.MAX_VALUE;
     
-    static final int TTL_THREADS_SCHEDULED_EXECUTOR = 10000;
+    public static final int TTL_THREADS_SCHEDULED_EXECUTOR = 10000;
     
-    static final TimeUnit THREAD_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
+    public static final TimeUnit THREAD_TTL_TIME_UNIT = TimeUnit.MILLISECONDS;
     
-    static final ScheduledThreadPoolExecutor scheduledExecutor;
+    private static final ScheduledThreadPoolExecutor scheduledExecutor;
     
-    static final ThreadPoolExecutor executor;
+    private static final ThreadPoolExecutor executor;
     
-    static final ThreadPoolExecutor networkExecutor;
+    private static final ThreadPoolExecutor networkExecutor;
     
     static
     {
@@ -225,5 +227,23 @@ public class Executors
     public static boolean isScheduledExecutorOperational()
     {
         return !scheduledExecutor.isShutdown() && !scheduledExecutor.isTerminated() && !scheduledExecutor.isTerminating();
+    }
+
+
+    public static ScheduledExecutorService getDefaultScheduledExecutor()
+    {
+        return scheduledExecutor;
+    }
+
+
+    public static void execute(Runnable command)
+    {
+        executor.execute(command);
+    }
+
+
+    public static ThreadPoolExecutor getDefaultNetworkExecutor()
+    {
+        return networkExecutor;
     }
 }

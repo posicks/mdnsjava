@@ -20,6 +20,7 @@ import org.xbill.DNS.Resolver;
 import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TSIG;
+import org.xbill.mDNS.utils.ListenerProcessor;
 
 /**
  * The MulticastDNSQuerier is a responder that integrates multicast and unicast DNS in accordance to the
@@ -354,7 +355,7 @@ public class MulticastDNSQuerier implements Querier
             return exception != null;
         }
     }
-    
+
     protected ListenerProcessor<ResolverListener> resolverListenerProcessor = new ListenerProcessor<ResolverListener>(ResolverListener.class);
     
     protected ResolverListener resolverListenerDispatcher = resolverListenerProcessor.getDispatcher();
@@ -367,6 +368,8 @@ public class MulticastDNSQuerier implements Querier
     
     protected Resolver[] unicastResolvers;
     
+    private final boolean mdnsVerbose;
+
     protected ResolverListener resolverDispatch = new ResolverListener()
     {
         public void handleException(final Object id, final Exception e)
@@ -380,8 +383,6 @@ public class MulticastDNSQuerier implements Querier
             resolverListenerDispatcher.receiveMessage(id, m);
         }
     };
-    
-    private final boolean mdnsVerbose;
     
     
     /**

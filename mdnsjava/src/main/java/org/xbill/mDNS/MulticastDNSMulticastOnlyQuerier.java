@@ -9,6 +9,7 @@ import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Cache;
@@ -30,7 +31,12 @@ import org.xbill.DNS.SetResponse;
 import org.xbill.DNS.TSIG;
 import org.xbill.DNS.WireParseException;
 import org.xbill.mDNS.MulticastDNSCache.CacheMonitor;
-import org.xbill.mDNS.NetworkProcessor.Packet;
+import org.xbill.mDNS.net.DatagramProcessor;
+import org.xbill.mDNS.net.NetworkProcessor;
+import org.xbill.mDNS.net.NetworkProcessor.Packet;
+import org.xbill.mDNS.utils.Executors;
+import org.xbill.mDNS.utils.ListenerProcessor;
+import org.xbill.mDNS.utils.Wait;
 
 /**
  * Implements the Multicast DNS portions of the MulticastDNSQuerier in accordance to RFC 6762.
@@ -262,6 +268,8 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     /** The default EDNS payload size */
     public static final int DEFAULT_EDNS_PAYLOADSIZE = 1280;
     
+    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
+
     protected boolean mdnsVerbose = false;
     
     protected boolean cacheVerbose = false;
@@ -294,11 +302,8 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     
     protected List<DatagramProcessor> multicastProcessors = new ArrayList<DatagramProcessor>();
     
-    // TODO: protected UnicastProcessor unicastProcessor;
+    private ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
     
-    // protected List<Thread> multicastReceiverThreads = new ArrayList<Thread>();
-    
-    // protected List<Thread> unicastReceiverThreads = new ArrayList<Thread>();
     
     private final CacheMonitor cacheMonitor = new CacheMonitor()
     {
@@ -489,7 +494,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
         cacheVerbose = Options.check("mdns_cache_verbose") || Options.check("cache_verbose");
-        Executors.scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -860,22 +865,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         }
                     });
                     
-                    // Wait for response or exception
-                    synchronized (results)
-                    {
-                        int wait = Options.intValue("mdns_resolve_wait");
-                        long waitTill = System.currentTimeMillis() + (wait > 0 ? wait : DEFAULT_RESPONSE_WAIT_TIME);
-                        while ((results.size() == 0) && (System.currentTimeMillis() < waitTill))
-                        {
-                            try
-                            {
-                                results.wait(waitTill - System.currentTimeMillis());
-                            } catch (InterruptedException e)
-                            {
-                                // ignore
-                            }
-                        }
-                    }
+                    Wait.forResponse(results);
                     
                     if (exceptions.size() > 0)
                     {
@@ -918,7 +908,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     final Message message = cache.queryCache(query, Credibility.ANY);
                     if ((message != null) && (message.getRcode() == Rcode.NOERROR) && MulticastDNSUtils.answersAll(query, message))
                     {
-                        Executors.executor.execute(new Runnable()
+                        Executors.execute(new Runnable()
                         {
                             public void run()
                             {
@@ -926,16 +916,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                             }
                         });
                     }
-                    
-                    int wait = Options.intValue("mdns_resolve_wait");
-                    long timeOut = wait >= 0 ? wait : 1000;
-                    Executors.scheduledExecutor.schedule(new Runnable()
-                    {
-                        public void run()
-                        {
-                            unregisterListener(wrapper);
-                        }
-                    }, timeOut, TimeUnit.MILLISECONDS);
                     
                     try
                     {
@@ -945,6 +925,16 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                         unregisterListener(wrapper);
                         listener.handleException(id, e);
                     }
+                    
+                    int wait = Options.intValue("mdns_resolve_wait");
+                    long timeOut = System.currentTimeMillis() + (wait > 0 ? wait : Querier.DEFAULT_RESPONSE_WAIT_TIME);
+                    scheduledExecutor.schedule(new Runnable()
+                    {
+                        public void run()
+                        {
+                            unregisterListener(wrapper);
+                        }
+                    }, timeOut, TimeUnit.MILLISECONDS);
                 } catch (Exception e)
                 {
                     listener.handleException(id, e);
@@ -1340,6 +1330,27 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     }
                 }
             }
+        }
+    }
+    
+    
+    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            defaultScheduledExecutor = scheduledExecutor;
+        }
+    }
+    
+    
+    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            this.scheduledExecutor  = scheduledExecutor;
+        } else
+        {
+            this.scheduledExecutor = defaultScheduledExecutor;
         }
     }
 }

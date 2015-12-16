@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package org.xbill.mDNS.net;
 
 import java.io.IOException;
 import java.net.DatagramPacket;
@@ -173,7 +173,7 @@ public class DatagramProcessor extends NetworkProcessor
                         System.err.println("-----> Received packet " + packet.id + " <-----");
                         packet.timer.start();
                     }
-                    processorExecutor.execute(new PacketRunner(listener, packet));
+                    networkExecutor.execute(new PacketRunner(listener, packet));
                 }
             } catch (SecurityException e)
             {

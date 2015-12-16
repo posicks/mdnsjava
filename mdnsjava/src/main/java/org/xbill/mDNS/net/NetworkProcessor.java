@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package org.xbill.mDNS.net;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -6,14 +6,17 @@ import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.net.SocketAddress;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.Options;
+import org.xbill.mDNS.utils.ExecutionTimer;
+import org.xbill.mDNS.utils.Executors;
 
 public abstract class NetworkProcessor implements Runnable, Closeable
 {
-    protected static class Packet
+    public static class Packet
     {
         private final InetAddress address;
         
@@ -68,7 +71,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     }
     
     
-    protected static interface PacketListener
+    public static interface PacketListener
     {
         void packetReceived(Packet packet);
     }
@@ -138,6 +141,10 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public static final int PACKET_MONITOR_NO_PACKET_RECEIVED_TIMEOUT = 100000;
     
     protected static boolean verboseLogging = false;
+
+    private static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
+    
+    private static ThreadPoolExecutor defaultNetworkExecutor = Executors.getDefaultNetworkExecutor();
     
     protected InetAddress ifaceAddress;
     
@@ -157,7 +164,9 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     protected Thread monitorThread = null;
     
-    protected ThreadPoolExecutor processorExecutor = null;
+    protected ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
+
+    protected ThreadPoolExecutor networkExecutor = defaultNetworkExecutor;
     
     
     public NetworkProcessor(final InetAddress ifaceAddress, final InetAddress address, final int port, final PacketListener listener)
@@ -165,12 +174,12 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     {
         /*
          * Remove When done developing and testing
- Options.set("mdns_cache_verbose");
- Options.set("cache_verbose");
- Options.set("mdns_network_verbose");
- Options.set("network_verbose");
-         */
+        Options.set("mdns_cache_verbose");
+        Options.set("cache_verbose");
+        Options.set("mdns_network_verbose");
+        Options.set("network_verbose");
         Options.set("mdns_network_thread_monitor");
+         */
         verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("verbose");
         threadMonitoring = Options.check("mdns_network_thread_monitor");
         
@@ -186,7 +195,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         ipv6 = address.getAddress().length > 4;
         
         this.listener = listener;
-        Executors.scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        scheduledExecutor.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -241,7 +250,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     public boolean isOperational()
     {
-        return !exit && !processorExecutor.isShutdown() && !processorExecutor.isTerminated() && !processorExecutor.isTerminating();
+        return !exit && !networkExecutor.isShutdown() && !networkExecutor.isTerminated() && !networkExecutor.isTerminating();
     }
     
     
@@ -271,8 +280,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     {
         exit = false;
         
-        processorExecutor = Executors.networkExecutor;
-        processorExecutor.execute(this);
+        networkExecutor.execute(this);
         if (threadMonitoring)
         {
             /*
@@ -303,13 +311,13 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                             if (now > (lastPacket + PACKET_MONITOR_NO_PACKET_RECEIVED_TIMEOUT))
                             {
                                 String msg = "Network Processor has not received a mDNS packet in " + ((double) (now - lastPacket) / (double) 1000) + " seconds";
-                                if (processorExecutor.isShutdown())
+                                if (networkExecutor.isShutdown())
                                 {
                                     msg += " - ProcessorExecutor has shutdown!";
-                                } else if (processorExecutor.isTerminated())
+                                } else if (networkExecutor.isTerminated())
                                 {
                                     msg += " - ProcessorExecutor has terminated!";
-                                } else if (processorExecutor.isTerminating())
+                                } else if (networkExecutor.isTerminating())
                                 {
                                     msg += " - ProcessorExecutor is terminating!";
                                 }
@@ -336,6 +344,48 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             t.setDaemon(true);
             t.start();
             monitorThread = t;
+        }
+    }
+    
+    
+    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            defaultScheduledExecutor = scheduledExecutor;
+        }
+    }
+    
+    
+    public static void setDefaultNetworkExecutor(ThreadPoolExecutor networkExecutor)
+    {
+        if (networkExecutor != null)
+        {
+            defaultNetworkExecutor = networkExecutor;
+        }
+    }
+    
+    
+    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
+    {
+        if (scheduledExecutor != null)
+        {
+            this.scheduledExecutor  = scheduledExecutor;
+        } else
+        {
+            this.scheduledExecutor = defaultScheduledExecutor;
+        }
+    }
+    
+    
+    public void setNetworkExecutor(ThreadPoolExecutor networkExecutor)
+    {
+        if (networkExecutor != null)
+        {
+            this.networkExecutor   = networkExecutor;
+        } else
+        {
+            this.networkExecutor = defaultNetworkExecutor;
         }
     }
 }

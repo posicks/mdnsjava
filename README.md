@@ -1,9 +1,9 @@
 # Multicast DNS (mDNS) & DNS-Based Service Discovery (DNS-SD) in Java
 
 ## Introduction
-The Multicast DNS (mDNS) [RFC 6762][http://tools.ietf.org/html/rfc6762] & DNS-Based Service Discovery (DNS-SD) [RFC 6763](http://tools.ietf.org/html/rfc6763) in Java, mdnsjava for short, project is an extension of the dnsjava [dnsjava.org](http://www.dnsjava.org/) project that implements Multicast DNS (mDNS) [RFC 6762](http://tools.ietf.org/html/rfc6762) and DNS-Based Service Discovery (DNS-SD) [RFC 6763](http://tools.ietf.org/html/rfc6763) in Java (aka. Bonjour in Java). mdnsjava does not artificially bind the mDNS and DNS-based Service Discovery functionality into a single combined API, instead, treating each as a separate function, independent from, but related to, the other. Thus, allowing clients to use Multicast DNS (mDNS) [RFC 6762](http://tools.ietf.org/html/rfc6762) as a substitute for DNS and not just for service discovery.
+The Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] & DNS-Based Service Discovery (DNS-SD) [[RFC 6763](http://tools.ietf.org/html/rfc6763)] in Java (mdnsjava) project is an extension of dnsjava ([dnsjava.org](http://www.dnsjava.org/)) that implements Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] and DNS-Based Service Discovery (DNS-SD) [[RFC 6763](http://tools.ietf.org/html/rfc6763)] in Java (aka. Bonjour in Java). Unlike other mDNS/DNS-SD implementations mdnsjava does not artificially bind the mDNS and DNS-SD functionality into a single API, instead treating each as a separate feature that is independent from, but related to, the other. This allows clients to use Multicast DNS (mDNS) [RFC 6762](http://tools.ietf.org/html/rfc6762) for name resolution without having to worry about service discovery and simplifies the use of DNS-Base Service Discovery using plain old Unicast DNS (mDNS can be used as a substitiute for DNS for name resolution and DNS can be used as a substitute for mDNS for service discovery).
 
-### Features, Version 2.1.7
+### Features
 
 * Multicast DNS (mDNS) Responder
 * Multicast DNS (mDNS) Querier
@@ -38,26 +38,45 @@ $
 ```
 ### API Usage
 
-Browse for Browse and Registration Domains using the default DNS search path.
+Lookup the registered Browse and Registration Domains [RFC 6263 Section 11](http://tools.ietf.org/html/rfc6763#section-11) using the default DNS and mDNS search paths.
 
 ```
-Resolve resolve = new Resolve(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME,
-                              MulticastDNSService.REGISTRATION_DOMAIN_NAME,
-                              MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME,
-                              MulticastDNSService.BROWSE_DOMAIN_NAME,
-                              MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+Lookup lookup = new Lookup(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME,
+                           MulticastDNSService.REGISTRATION_DOMAIN_NAME,
+                           MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME,
+                           MulticastDNSService.BROWSE_DOMAIN_NAME,
+                           MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
                                
-Domain[] domains = resolve.resolveDomains();
+Domain[] domains = lookup.lookupDomains();
 for (Domain domain : domains)
 {
     System.out.println(domain);
 }
-resolve.close();
+lookup.close();
 ```
 
-Browsing for Services. Receiving events for each service discovered and removed.
+####<a name="lookup-service"/></a> Lookup (Resolve) Services (one shot synchronous).
 
 ```
+Lookup lookup = new Resolve("Test._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp.local.");
+ServiceInstance[] services = lookup.lookupServices();
+for (ServiceInstance service : services)
+{
+    System.out.println(service);
+}
+```
+
+Asynchronously browse for registered services. The DNSSDListener receives service registration and removal events as they are received. To locate services that were registered before starting the browse operation us the [Lookup (Resolve) Services](#lookup-service) process described above.
+
+```
+String[] serviceTypes = new String[]
+{
+    "_http._tcp.",              // Web pages
+    "_printer._sub._http._tcp", // Printer configuration web pages
+    "_org.smpte.st2071.device:device_v1.0._sub._mdc._tcp",  // SMPTE ST2071 Devices
+    "_org.smpte.st2071.service:service_v1.0._sub._mdc._tcp"  // SMPTE ST2071 Services
+};
+
 Browse browse = new Browse(serviceTypes);
 browse.start(new DNSSDListener()
 {
@@ -88,33 +107,22 @@ while (true)
 browse.close();
 ```
 
-Resolve (Lookup) a Service, (one shot synchronously).
+Lookup (Resolve) a Records, (one shot synchronously).
 
 ```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.");
-ServiceInstance[] services = resolve.resolveServices();
-for (ServiceInstance service : services)
-{
-    System.out.println(service);
-}
-```
-
-Resolve (Lookup) a Records, (one shot synchronously).
-
-```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecords();
+Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = lookup.lookupRecords();
 for (Record record : records)
 {
     System.out.println(records);
 }
 ```
 
-Resolve (Lookup) a Records asynchronously, (one shot asynchronously).
+Lookup (Resolve) a Records asynchronously, (one shot asynchronously).
 
 ```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecordsAsych(new RecordListener()
+Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = Lookup. LookupRecordsAsych(new RecordListener()
 {
     public void receiveRecord(Object id, Record record)
     {

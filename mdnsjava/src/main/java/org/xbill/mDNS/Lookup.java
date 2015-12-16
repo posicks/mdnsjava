@@ -1,18 +1,17 @@
 package org.xbill.mDNS;
 
-import java.io.Closeable;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
 
-import org.xbill.DNS.DClass;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
-import org.xbill.DNS.Options;
 import org.xbill.DNS.PTRRecord;
 import org.xbill.DNS.Rcode;
 import org.xbill.DNS.Record;
@@ -20,6 +19,7 @@ import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
+import org.xbill.mDNS.utils.Wait;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Lookup extends MulticastDNSLookupBase
@@ -33,17 +33,23 @@ public class Lookup extends MulticastDNSLookupBase
         private boolean isLegacy;
         
         
-        protected Domain(final boolean isDefault, final boolean isLegacy, final Name name)
-        {
-            this.name = name;
-            this.isDefault = isDefault;
-            this.isLegacy = isLegacy;
-        }
-        
-        
         protected Domain(final Name name)
         {
-            this(false, false, name);
+            this.name = name;
+            
+            byte[] label = name.getLabel(0);
+            if (label != null)
+            {
+                switch ((char) label[0])
+                {
+                    case 'd':
+                        isDefault = true;
+                        break;
+                    case 'l':
+                        isLegacy = true;
+                        break;
+                }
+            }
         }
         
         
@@ -98,14 +104,14 @@ public class Lookup extends MulticastDNSLookupBase
     }
     
     
-    public interface RecordListener
+    public static interface RecordListener
     {
         public void handleException(Object id, Exception e);
         
         
         public void receiveRecord(Object id, Record r);
     }
-    
+
     
     public Lookup(final Name... names)
     throws IOException
@@ -172,105 +178,50 @@ public class Lookup extends MulticastDNSLookupBase
     public Domain[] lookupDomains()
     throws IOException
     {
-        final List domains = Collections.synchronizedList(new LinkedList());
+        final Set domains = Collections.synchronizedSet(new HashSet());
         final List exceptions = Collections.synchronizedList(new LinkedList());
-        List resolvers = new LinkedList();
         
-        if ((names != null) && (names.length > 0))
+        if ((queries != null) && (queries.length > 0))
         {
-            for (final Name name : names)
+            lookupRecordsAsync(new RecordListener()
             {
-                Lookup lookup = new Lookup(new Name[] {name}, Type.PTR, DClass.ANY);
-                resolvers.add(lookup);
-                
-                /*
-                 * Name[] defaultBrowseDomains = lookup.getQuerier().getMulticastDomains();
-                 * if (defaultBrowseDomains != null && defaultBrowseDomains.length > 0)
-                 * {
-                 * for (int index = 0; index < defaultBrowseDomains.length; index++)
-                 * {
-                 * Domain d = new Domain(false, false, defaultBrowseDomains[index]);
-                 * if (!domains.contains(d))
-                 * {
-                 * domains.add(d);
-                 * }
-                 * }
-                 * }
-                 */
-                
-                lookup.lookupRecordsAsync(new RecordListener()
+                public void handleException(final Object id, final Exception e)
                 {
-                    public void handleException(final Object id, final Exception e)
+                    exceptions.add(e);
+                }
+                
+                
+                public void receiveRecord(final Object id, final Record record)
+                {
+                    if (record.getTTL() > 0)
                     {
-                        exceptions.add(e);
-                    }
-                    
-                    
-                    public void receiveRecord(final Object id, final Record record)
-                    {
-                        if (record.getTTL() > 0)
+                        if (record.getType() == Type.PTR)
                         {
-                            if (record.getType() == Type.PTR)
+                            String value = ((PTRRecord) record).getTarget().toString();
+                            if (!value.endsWith("."))
                             {
-                                String value = ((PTRRecord) record).getTarget().toString();
-                                if (!value.endsWith("."))
-                                {
-                                    value += ".";
-                                }
-                                
-                                // Check if domain is already in the list, add if not, otherwise manipulate booleans.
-                                try
-                                {
-                                    Domain domain = new Domain(false, false, new Name(value));
-                                    int index = domains.indexOf(domain);
-                                    if (index >= 0)
-                                    {
-                                        domain = (Domain) domains.get(index);
-                                    } else
-                                    {
-                                        domains.add(domain);
-                                    }
-                                    
-                                    switch (name.toString().charAt(0))
-                                    {
-                                        case 'd':
-                                            domain.isDefault = true;
-                                            break;
-                                        case 'l':
-                                            domain.isLegacy = true;
-                                            break;
-                                    }
-                                } catch (TextParseException e)
-                                {
-                                    e.printStackTrace(System.err);
-                                }
+                                value += ".";
+                            }
+                            
+                            // Check if domain is already in the list, add if not, otherwise manipulate booleans.
+                            try
+                            {
+                                domains.add(new Domain(new Name(value)));
+                            } catch (TextParseException e)
+                            {
+                                e.printStackTrace(System.err);
                             }
                         }
                     }
-                });
-            }
-            
-            synchronized (domains)
-            {
-                int wait = Options.intValue("mdns_resolve_wait");
-                long waitTill = System.currentTimeMillis() + (wait > 0 ? wait : Querier.DEFAULT_RESPONSE_WAIT_TIME);
-                while ((domains.size() == 0) && (System.currentTimeMillis() < waitTill))
-                {
-                    try
-                    {
-                        domains.wait(waitTill - System.currentTimeMillis());
-                    } catch (InterruptedException e)
-                    {
-                        // ignore
-                    }
                 }
-            }
+            });
             
-            for (Object o : resolvers)
-            {
-                Closeable c = (Closeable) o;
-                c.close();
-            }
+            Wait.forResponse(domains);
+        }
+        
+        for (Name name : searchPath)
+        {
+            domains.add(new Domain(name));
         }
         
         return (Domain[]) domains.toArray(new Domain[domains.size()]);
@@ -280,43 +231,25 @@ public class Lookup extends MulticastDNSLookupBase
     public Record[] lookupRecords()
     throws IOException
     {
-        final List ids = new ArrayList();
-        final List messages = new ArrayList();
-        final List exceptions = new ArrayList();
+        final List messages = Collections.synchronizedList(new LinkedList());
+        final List exceptions = Collections.synchronizedList(new LinkedList());
         
-        final Querier querier = getQuerier();
-        for (Message query : queries)
+        lookupRecordsAsync(new ResolverListener()
         {
-            ids.add(querier.sendAsync(query, new ResolverListener()
+            public void handleException(final Object id, final Exception e)
             {
-                public void handleException(final Object id, final Exception e)
-                {
-                    exceptions.add(e);
-                }
-                
-                
-                public void receiveMessage(final Object id, final Message m)
-                {
-                    messages.add(m);
-                }
-            }));
-        }
-        
-        int wait = Options.intValue("mdns_resolve_wait");
-        long timeOut = wait >= 0 ? wait : 1000;
-        long now;
-        long end = timeOut + (now = System.currentTimeMillis());
-        while ((now = System.currentTimeMillis()) < end)
-        {
-            try
-            {
-                Thread.sleep(end - now);
-            } catch (InterruptedException e)
-            {
-                // ignore
+                exceptions.add(e);
             }
-        }
+            
+            
+            public void receiveMessage(final Object id, final Message m)
+            {
+                messages.add(m);
+            }
+        });
         
+        Wait.forResponse(messages);
+
         List records = new ArrayList();
         
         for (Object o : messages)
@@ -339,25 +272,32 @@ public class Lookup extends MulticastDNSLookupBase
     public void lookupRecordsAsync(final RecordListener listener)
     throws IOException
     {
+        lookupRecordsAsync(new ResolverListener()
+        {
+            public void handleException(final Object id, final Exception e)
+            {
+                listener.handleException(id, e);
+            }
+            
+            
+            public void receiveMessage(final Object id, final Message m)
+            {
+                Record[] records = MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY);
+                for (Record r : records)
+                {
+                    listener.receiveRecord(id, r);
+                }
+            }
+        });
+    }
+    
+    
+    public void lookupRecordsAsync(final ResolverListener listener)
+    throws IOException
+    {
         for (Message query : queries)
         {
-            getQuerier().sendAsync(query, new ResolverListener()
-            {
-                public void handleException(final Object id, final Exception e)
-                {
-                    listener.handleException(id, e);
-                }
-                
-                
-                public void receiveMessage(final Object id, final Message m)
-                {
-                    Record[] records = MulticastDNSUtils.extractRecords(m, Section.ANSWER, Section.ADDITIONAL, Section.AUTHORITY);
-                    for (Record r : records)
-                    {
-                        listener.receiveRecord(id, r);
-                    }
-                }
-            });
+            getQuerier().sendAsync(query, listener);
         }
     }
     

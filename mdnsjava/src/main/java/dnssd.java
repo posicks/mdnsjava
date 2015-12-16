@@ -13,9 +13,9 @@ import org.xbill.DNS.Type;
 import org.xbill.mDNS.Browse;
 import org.xbill.mDNS.Constants;
 import org.xbill.mDNS.DNSSDListener;
-import org.xbill.mDNS.ExecutionTimer;
 import org.xbill.mDNS.Lookup;
 import org.xbill.mDNS.Lookup.Domain;
+import org.xbill.mDNS.utils.ExecutionTimer;
 import org.xbill.mDNS.MulticastDNSService;
 import org.xbill.mDNS.ServiceInstance;
 import org.xbill.mDNS.ServiceName;
@@ -184,7 +184,6 @@ public class dnssd
                             System.out.println();
                             System.out.println("Services Found:");
                             ExecutionTimer._start();
-                            //                            ExecutionTimer.start();
                             MulticastDNSService mDNSService = new MulticastDNSService();
                             Object id = mDNSService.startServiceDiscovery(new Browse(serviceTypes), new DNSSDListener()
                             {

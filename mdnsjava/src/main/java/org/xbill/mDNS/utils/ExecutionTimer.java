@@ -1,4 +1,4 @@
-package org.xbill.mDNS;
+package org.xbill.mDNS.utils;
 
 import java.util.EmptyStackException;
 import java.util.Stack;
