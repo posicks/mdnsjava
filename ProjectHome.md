@@ -55,9 +55,28 @@ for (Domain domain : domains)
 lookup.close();
 ```
 
-Asynchronously browse for registered services. The DNSSDListener receives service registration and removal events. Services that were registered before the browse operation is started will be sent to the listener in addition to any new services that are registered.
+####<a name="lookup-service"/></a> Lookup (Resolve) Services (one shot synchronous).
 
 ```
+Lookup lookup = new Resolve("Test._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp.local.");
+ServiceInstance[] services = lookup.lookupServices();
+for (ServiceInstance service : services)
+{
+    System.out.println(service);
+}
+```
+
+Asynchronously browse for registered services. The DNSSDListener receives service registration and removal events as they are received. To locate services that were registered before starting the browse operation us the [Lookup (Resolve) Services](#lookup-service) process described above.
+
+```
+String[] serviceTypes = new String[]
+{
+    "_http._tcp.",              // Web pages
+    "_printer._sub._http._tcp", // Printer configuration web pages
+    "_org.smpte.st2071.device:device_v1.0._sub._mdc._tcp",  // SMPTE ST2071 Devices
+    "_org.smpte.st2071.service:service_v1.0._sub._mdc._tcp"  // SMPTE ST2071 Services
+};
+
 Browse browse = new Browse(serviceTypes);
 browse.start(new DNSSDListener()
 {
@@ -88,33 +107,22 @@ while (true)
 browse.close();
 ```
 
-Resolve (Lookup) a Service, (one shot synchronously).
+Lookup (Resolve) a Records, (one shot synchronously).
 
 ```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.");
-ServiceInstance[] services = resolve.resolveServices();
-for (ServiceInstance service : services)
-{
-    System.out.println(service);
-}
-```
-
-Resolve (Lookup) a Records, (one shot synchronously).
-
-```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecords();
+Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = lookup.lookupRecords();
 for (Record record : records)
 {
     System.out.println(records);
 }
 ```
 
-Resolve (Lookup) a Records asynchronously, (one shot asynchronously).
+Lookup (Resolve) a Records asynchronously, (one shot asynchronously).
 
 ```
-Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecordsAsych(new RecordListener()
+Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = Lookup. LookupRecordsAsych(new RecordListener()
 {
     public void receiveRecord(Object id, Record record)
     {
