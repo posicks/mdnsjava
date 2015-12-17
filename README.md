@@ -12,7 +12,7 @@ The Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] & DNS-
 * Browsing for DNS/mDNS Resource Records
 * Resolving/Looking up Services synchronously and asynchronously
 * Resolving/Looking up DNS/mDNS Resource Records synchronously and asynchronously
-* Tested with dnsjava versions 2.1.4, 2.1.5, 2.1.6, and 2.1.7.
+* Tested with dnsjava versions 2.1.4, 2.1.5, 2.1.6 and 2.1.7.
 
 ## <a name="changelog"></a> Changelog
 
