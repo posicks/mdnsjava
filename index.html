@@ -34,10 +34,11 @@
 <h2>
 <a id="introduction" class="anchor" href="#introduction" aria-hidden="true"><span class="octicon octicon-link"></span></a>Introduction</h2>
 
-<p>The Multicast DNS (mDNS) [<a href="http://tools.ietf.org/html/rfc6762">RFC 6762</a>] &amp; DNS-Based Service Discovery (DNS-SD) [<a href="http://tools.ietf.org/html/rfc6763">RFC 6763</a>] in Java, mdnsjava for short, project is an extension of the dnsjava [<a href="http://www.dnsjava.org/">dnsjava.org</a>] project that implements Multicast DNS (mDNS) and DNS-Based Service Discovery (DNS-SD) in Java. mdnsjava does not artificially bind the mDNS and DNS-based Service Discovery functionality into a single combined API, instead, treating each as a separate function, independent from but related to the other. Thus, allowing clients to use Multicast DNS (mDNS) as a substitute for DNS and not just for service discovery.</p>
+<p>
+The Multicast DNS (mDNS) [<a href="http://tools.ietf.org/html/rfc6762">RFC 6762</a>] &amp; DNS-Based Service Discovery (DNS-SD) [<a href="http://tools.ietf.org/html/rfc6763">RFC 6763</a>] in Java (mdnsjava) project is an extension of dnsjava (<a href="http://www.dnsjava.org/">dnsjava.org</a>) that implements Multicast DNS (mDNS) [<a href="http://tools.ietf.org/html/rfc6762">RFC 6762</a>] and DNS-Based Service Discovery (DNS-SD) [<a href="http://tools.ietf.org/html/rfc6763">RFC 6763</a>] in Java (aka. Bonjour in Java). Unlike other mDNS/DNS-SD implementations mdnsjava does not artificially bind the mDNS and DNS-SD functionality into a single API, instead treating each as a separate feature that is independent from, but related to, the other. This allows clients to use Multicast DNS (mDNS) [<a href="http://tools.ietf.org/html/rfc6762">RFC 6762</a>] for name resolution without having to worry about service discovery and simplifies the use of DNS-Base Service Discovery using plain old Unicast DNS (mDNS can be used as a substitiute for DNS for name resolution and DNS can be used as a substitute for mDNS for service discovery).</p>
 
-<h3>
-<a id="features-version-215" class="anchor" href="#features-version-215" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features, Version 2.1.5</h3>
+<h2>
+<a id="features-version-215" class="anchor" href="#features-version-215" aria-hidden="true"><span class="octicon octicon-link"></span></a>Features</h2>
 
 <ul>
 <li>Multicast DNS (mDNS) Responder</li>
@@ -47,23 +48,25 @@
 <li>Browsing for DNS/mDNS Resource Records</li>
 <li>Resolving/Looking up Services synchronously and asynchronously</li>
 <li>Resolving/Looking up DNS/mDNS Resource Records synchronously and asynchronously</li>
-<li>Tested with dnsjava versions 2.1.4, 2.1.5, and 2.1.6.</li>
+<li>Tested with dnsjava versions 2.1.4, 2.1.5, 2.1.6 and 2.1.7.</li>
 </ul>
 
-<h3>
-<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dependencies</h3>
+<h2>
+<a id="dependencies" class="anchor" href="#dependencies" aria-hidden="true"><span class="octicon octicon-link"></span></a>Dependencies</h2>
 
 <p>This project depends on:</p>
 
 <ul>
-<li>dnsjava.org project, version 2.1.5 or higher. (works version 2.1.4 and may work with early versions)</li>
+<li>dnsjava.org project, version 2.1.5 or higher. (may work with early versions)</li>
 <li>Java SE 1.5 or higher</li>
 </ul>
 
-<h3>
-<a id="command-line-tool-usage" class="anchor" href="#command-line-tool-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Command Line Tool Usage</h3>
+<h2>
+<a id="command-line-tool-usage" class="anchor" href="#command-line-tool-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>Command Line Tool Usage</h2>
 
-<pre><code>$java -jar mdnsjava.jar dnssd
+<pre><code>$java -jar mdnsjava.jar
+          or
+$java -cp mdnsjava.jar:dnsjava.jar dnssd
 
 Command Line:  dnssd &lt;option&gt; [parameters] 
 
@@ -81,36 +84,65 @@ $
 <h3>
 <a id="api-usage" class="anchor" href="#api-usage" aria-hidden="true"><span class="octicon octicon-link"></span></a>API Usage</h3>
 
-<p>Browse for Browse and Registration Domains using the default DNS search path</p>
+<p>The following are examples of mdnsjava API usage.</p>
 
-<pre><code>Resolve resolve = new Resolve(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME, 
-                              MulticastDNSService.REGISTRATION_DOMAIN_NAME,
-                              MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME, 
-                              MulticastDNSService.BROWSE_DOMAIN_NAME, 
-                             `MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
-Domain[] domains = resolve.resolveDomains();
+<p>All domain names in mdnsjava are considered to be relative to the domain search path unless they end with a period <code>.</code>.</p>
+<p>
+For example:
+<ul>
+<li>The domain name <code>posick.net.</code> will be treated as an absolute domain name, looking up records in the posick.net domain.</li>
+<li>The domain name <code>posick.net</code> will be treated as a relative domain name and will be prepended to each domain listed in the DNS search path, ex, <code>posick.net.local.</code>, <code>posick.net.posick.net.</code>, etc...</li>
+</ul></p>
+
+<h3>Lookup the registered Browse and Registration Domains [<a href="http://tools.ietf.org/html/rfc6763#section-11">RFC 6263 Section 11</a>] using the default DNS and mDNS search paths.</h3>
+
+<pre><code>Lookup lookup = new Lookup(MulticastDNSService.DEFAULT_REGISTRATION_DOMAIN_NAME,
+                           MulticastDNSService.REGISTRATION_DOMAIN_NAME,
+                           MulticastDNSService.DEFAULT_BROWSE_DOMAIN_NAME,
+                           MulticastDNSService.BROWSE_DOMAIN_NAME,
+                           MulticastDNSService.LEGACY_BROWSE_DOMAIN_NAME);
+                               
+Domain[] domains = lookup.lookupDomains();
 for (Domain domain : domains)
 {
     System.out.println(domain);
 }
-resolve.close();
+lookup.close();
 </code></pre>
 
-<p>Browsing for Services. Receiving events for each service discovered and removed</p>
+<h3>Lookup (Resolve) Services (one shot synchronous).</h3>
 
-<pre><code>Browse browse = new Browse(serviceTypes);
+<pre><code>Lookup lookup = new Resolve("Test._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp.local.");
+ServiceInstance[] services = lookup.lookupServices();
+for (ServiceInstance service : services)
+{
+    System.out.println(service);
+}
+</code></pre>
+
+<h3>Asynchronously Browse for Registered Services.</h3>
+
+<pre><code>String[] serviceTypes = new String[]
+{
+    "_http._tcp.",              // Web pages
+    "_printer._sub._http._tcp", // Printer configuration web pages
+    "_org.smpte.st2071.device:device_v1.0._sub._mdc._tcp",  // SMPTE ST2071 Devices
+    "_org.smpte.st2071.service:service_v1.0._sub._mdc._tcp"  // SMPTE ST2071 Services
+};
+
+Browse browse = new Browse(serviceTypes);
 browse.start(new DNSSDListener()
 {
     public void serviceDiscovered(Object id, ServiceInstance service)
     {
         System.out.println("Service Discovered - " + service);
     }
-
+                             
     public void serviceRemoved(Object id, ServiceInstance service)
     {
         System.out.println("Service Removed - " + service);
     }
-
+ 
     public void handleException(Object id, Exception e)
     {
         System.err.println("Exception: " + e.getMessage());
@@ -128,36 +160,26 @@ while (true)
 browse.close();
 </code></pre>
 
-<p>Resolve (Lookup) a Service, (one shot synchronously)</p>
+<h3>Lookup (Resolve) a Records Synchronously.</h3>
 
-<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.");
-ServiceInstance[] services = resolve.resolveServices();
-for (ServiceInstance service : services)
-{
-    System.out.println(service);
-}
-</code></pre>
-
-<p>Resolve (Lookup) a Records, (one shot synchronously)</p>
-
-<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecords();
+<pre><code>Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = lookup.lookupRecords();
 for (Record record : records)
 {
     System.out.println(records);
 }
 </code></pre>
 
-<p>Resolve (Lookup) a Records asynchronously, (one shot asynchronously)</p>
+<h3>Lookup (Resolve) a Records Asynchronously.</h3>
 
-<pre><code>Resolve resolve = new Resolve("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
-Record[] records = resolve.resolveRecordsAsych(new RecordListener()
+<pre><code>Lookup lookup = new Lookup("Test._mdc._tcp.local.", Type.ANY, DClass.IN);
+Record[] records = Lookup. LookupRecordsAsych(new RecordListener()
 {
     public void receiveRecord(Object id, Record record)
     {
         System.out.println("Record Found - " + record);
     }
-
+ 
     public void handleException(Object id, Exception e)
     {
         System.err.println("Exception: " + e.getMessage());
@@ -168,33 +190,37 @@ Thread.sleep(1000);
 resolve.close();
 </code></pre>
 
-<p>Register and Unregister a Service
-    MulticastDNSService mDNSService = new MulticastDNSService();
-    ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname, MulticastDNSService.DEFAULT_SRV_TTL, addresses, txtValues);
-    ServiceInstance registeredService = mDNSService.register(service);
-    if (registeredService != null)
+<h3>Registering and Unregistering a Services.</h3>
+
+<pre><code>MulticastDNSService mDNSService = new MulticastDNSService();
+ServiceInstance service = new ServiceInstance(serviceName, 0, 0, port, hostname, MulticastDNSService.DEFAULT_SRV_TTL, addresses, txtValues);
+ServiceInstance registeredService = mDNSService.register(service);
+if (registeredService != null)
+{
+    System.out.println("Services Successfully Registered: \n\t" + registeredService);
+} else
+{
+    System.err.println("Services Registration Failed!");
+}
+while (true)
+{
+    Thread.sleep(10);
+    if (System.in.read() == 'q')
     {
-        System.out.println("Services Successfully Registered: \n\t" + registeredService);
-    } else
-    {
-        System.err.println("Services Registration Failed!");
-    }
-    while (true)
-    {
-        Thread.sleep(10);
-        if (System.in.read() == 'q')
+        if (mDNSService.unregister(registeredService))
         {
-            if (mDNSService.unregister(registeredService))
-            {
-                System.out.println("Services Successfully Unregistered: \n\t" + service);
-            } else
-            {
-                System.err.println("Services Unregistration Failed!");
-            }
-            break;
+            System.out.println("Services Successfully Unregistered: \n\t" + service);
+        } else
+        {
+            System.err.println("Services Unregistration Failed!");
         }
+        break;
     }
-    mDNSService.close();</p>
+}
+mDNSService.close();
+</code></pre>
+
+<h2>Additional Information</h2>
 
 <h3>
 <a id="workaround-for-java-ipv6-issues" class="anchor" href="#workaround-for-java-ipv6-issues" aria-hidden="true"><span class="octicon octicon-link"></span></a>Workaround for Java IPv6 Issues</h3>
@@ -206,13 +232,35 @@ resolve.close();
 <pre><code>java -Djava.net.preferIPv4Stack=true -jar mdnsjava.jar dnssd -E
 </code></pre>
 
-<h3>
-<a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+<h2>DNS-based Service Dicovery (DNS-SD)</h2>
+
+<p>DNS-based Service Discovery is an efficient service discovery protocol developed by Apple, originally as Bonjour. DNS-SD is part of the [<a href="http://www.zeroconf.org/">Zeroconf</a>] specification and sclaes from the link-local network up to the Internet. Link-local network support is provided via mDNS using the <code>local.</code> domain name, while scaling to networks ouside than the link-local network is achieved thru Unicast DNS and regular domain names, for example <code>posick.net.</code>.</p>
+
+<h2>SMPTE ST2071 Media & Device Control over IP</h2>
+
+<p>This project was originally created for the development of a proof of concept application for the Society of Motion Picture and Television Engineers (SMPTE) suite of standards on Media & Device Control over IP networks, [<a href="http://standards.smpte.org/search?fulltext=2071&smptes-status=in-force&submit=yes&content-group=smptes">SMPTE ST2071</a>]. The SMPTE ST2071 suite of standards defines an open standard for the representation of devices and services within an Internet of Things (IoT) and defines extensions to the DNS-SD protocol that allows for the service discovery DNS infrastructure to be seperate from the DNS infrastructure used for name resolution.</p>
+
+<h3>Registering and Unregistering ST2071 Capabilities</h3>
+
+<p>The SMPTE ST2071 standard defines <a href="http://mdc.posick.net">Capabilities</a> as uniquely identified interfaces that describe an atomic of behavior or feature. Devices and Services are then described by listing the identities of the uniquely identified interfaces. The standard defines the DNS naming convention for these Capabilities to be in the form:</p>
+
+<pre><code>'_' ${namespace} ':' ${interface_name} '_sub._mdc._tcp.' ${domain}
+</code></pre>
+
+<p>and for each device and service to also be registered using the DNS-SD name</p>
+
+<pre><code>'_mdc._tcp.' ${domain}
+</pre></code>
+
+<p>The registration of all services using the <code>_mdc._tcp</code> name facilitates the search of all registered ST2071 devices, services and Capability enpoints.</p>
+
+<h2>
+<a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h2>
 
 <p>mdnsjava was created by Steve Posick (<a href="https://github.com/posicks" class="user-mention">@posicks</a>) as part of a Proof of Concept application for the Society of Motion Picture and Television Engineers (<a href="http://www.smpte.org/">SMPTE</a>) suite of standards on Media &amp; Device Control over IP networks, [<a href="http://standards.smpte.org/search?fulltext=2071&amp;smptes-status=in-force&amp;submit=yes&amp;content-group=smptes">SMPTE ST2071</a>]. The SMPTE ST2071 suite of standards defines an open standard for the representation of devices and services within an Internet of Things (IoT) using uniquely identified feature interfaces, similar in principle to uniquely identified Microservice interfaces, and defines extensions for the DNS-SD protocol that allow for the service discovery DNS infrastructure to be separated from the name resolution DNS infrastructure.</p>
 
-<h3>
-<a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+<h2>
+<a id="support-or-contact" class="anchor" href="#support-or-contact" aria-hidden="true"><span class="octicon octicon-link"></span></a>Support or Contact</h2>
 
 <p>Having trouble with Pages? Check out our documentation or <a href="@posicks">contact support</a>.</p>
       </section>
