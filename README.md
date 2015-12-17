@@ -28,7 +28,9 @@ This project depends on:
 
 ## <a name="command_line_tools"></a> Command Line Tool Usage
 ```
-$java -jar mdnsjava.jar dnssd
+$java -jar mdnsjava.jar
+          or
+$java -cp mdnsjava.jar:dnsjava.jar dnssd
  
  Command Line:  dnssd <option> [parameters] 
 
@@ -155,7 +157,7 @@ Thread.sleep(1000);
 resolve.close();
 ```
 
-### <a name="register_unregister_services"></a> Registering and Unregistering a Services
+### <a name="register_unregister_services"></a> Registering and Unregistering a Services.
 
 ```
 MulticastDNSService mDNSService = new MulticastDNSService();
