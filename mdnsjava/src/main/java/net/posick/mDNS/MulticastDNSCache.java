@@ -365,8 +365,6 @@ public class MulticastDNSCache extends Cache implements Closeable
     
     protected final static MulticastDNSCache DEFAULT_MDNS_CACHE;
 
-    private static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
-    
     static
     {
         MulticastDNSCache temp = null;
@@ -409,8 +407,8 @@ public class MulticastDNSCache extends Cache implements Closeable
     private Method removeElement = null;
     
     private boolean mdnsVerbose;
-
-    private ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
+    
+    private Executors executors = Executors.newInstance();
     
     
     /**
@@ -510,11 +508,6 @@ public class MulticastDNSCache extends Cache implements Closeable
                 MonitorTask task = new MonitorTask(true);
                 task.run();
             }
-        }
-        
-        if (scheduledExecutor != null && scheduledExecutor != defaultScheduledExecutor)
-        {
-            scheduledExecutor.shutdownNow();
         }
     }
     
@@ -788,7 +781,7 @@ public class MulticastDNSCache extends Cache implements Closeable
     {
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose");
         
-        scheduledExecutor.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
+        executors.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
         
         Class clazz = getClass().getSuperclass();
         
@@ -933,26 +926,5 @@ public class MulticastDNSCache extends Cache implements Closeable
         }
         
         return (int) expire;
-    }
-    
-    
-    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            defaultScheduledExecutor = scheduledExecutor;
-        }
-    }
-    
-    
-    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            this.scheduledExecutor  = scheduledExecutor;
-        } else
-        {
-            this.scheduledExecutor = defaultScheduledExecutor;
-        }
     }
 }

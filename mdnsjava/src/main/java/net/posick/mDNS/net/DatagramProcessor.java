@@ -173,7 +173,7 @@ public class DatagramProcessor extends NetworkProcessor
                         System.err.println("-----> Received packet " + packet.id + " <-----");
                         packet.timer.start();
                     }
-                    networkExecutor.execute(new PacketRunner(listener, packet));
+                    executors.executeNetworkTask(new PacketRunner(listener, packet));
                 }
             } catch (SecurityException e)
             {

@@ -33,8 +33,8 @@ import org.xbill.DNS.WireParseException;
 
 import net.posick.mDNS.MulticastDNSCache.CacheMonitor;
 import net.posick.mDNS.net.DatagramProcessor;
-import net.posick.mDNS.net.NetworkProcessor;
-import net.posick.mDNS.net.NetworkProcessor.Packet;
+import net.posick.mDNS.net.Packet;
+import net.posick.mDNS.net.PacketListener;
 import net.posick.mDNS.utils.Executors;
 import net.posick.mDNS.utils.ListenerProcessor;
 import net.posick.mDNS.utils.Wait;
@@ -52,7 +52,7 @@ import net.posick.mDNS.utils.Wait;
  * @author Steve Posick
  */
 @SuppressWarnings({"unchecked", "rawtypes"})
-public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcessor.PacketListener
+public class MulticastDNSMulticastOnlyQuerier implements Querier, PacketListener
 {
     public class ListenerWrapper implements ResolverListener
     {
@@ -269,8 +269,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     /** The default EDNS payload size */
     public static final int DEFAULT_EDNS_PAYLOADSIZE = 1280;
     
-    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
-
     protected boolean mdnsVerbose = false;
     
     protected boolean cacheVerbose = false;
@@ -303,7 +301,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
     
     protected List<DatagramProcessor> multicastProcessors = new ArrayList<DatagramProcessor>();
     
-    private ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
+    protected Executors executors = Executors.newInstance();
     
     
     private final CacheMonitor cacheMonitor = new CacheMonitor()
@@ -495,7 +493,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
         
         mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
         cacheVerbose = Options.check("mdns_cache_verbose") || Options.check("cache_verbose");
-        scheduledExecutor.scheduleAtFixedRate(new Runnable()
+        executors.scheduleAtFixedRate(new Runnable()
         {
             public void run()
             {
@@ -766,7 +764,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
             }
         }
         
-        return cacheMonitor.isOperational() && Executors.isScheduledExecutorOperational() && Executors.isExecutorOperational();
+        return cacheMonitor.isOperational() && executors.isScheduledExecutorOperational() && executors.isExecutorOperational();
     }
     
     
@@ -909,7 +907,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     final Message message = cache.queryCache(query, Credibility.ANY);
                     if ((message != null) && (message.getRcode() == Rcode.NOERROR) && MulticastDNSUtils.answersAll(query, message))
                     {
-                        Executors.execute(new Runnable()
+                        executors.execute(new Runnable()
                         {
                             public void run()
                             {
@@ -929,7 +927,7 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     
                     int wait = Options.intValue("mdns_resolve_wait");
                     long timeOut = System.currentTimeMillis() + (wait > 0 ? wait : Querier.DEFAULT_RESPONSE_WAIT_TIME);
-                    scheduledExecutor.schedule(new Runnable()
+                    executors.schedule(new Runnable()
                     {
                         public void run()
                         {
@@ -1331,27 +1329,6 @@ public class MulticastDNSMulticastOnlyQuerier implements Querier, NetworkProcess
                     }
                 }
             }
-        }
-    }
-    
-    
-    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            defaultScheduledExecutor = scheduledExecutor;
-        }
-    }
-    
-    
-    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            this.scheduledExecutor  = scheduledExecutor;
-        } else
-        {
-            this.scheduledExecutor = defaultScheduledExecutor;
         }
     }
 }

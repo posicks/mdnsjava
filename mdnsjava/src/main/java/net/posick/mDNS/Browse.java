@@ -23,8 +23,6 @@ import net.posick.mDNS.utils.ListenerProcessor;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
-    protected static ScheduledExecutorService defaultScheduledExecutor = Executors.getDefaultScheduledExecutor();
-    
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
      * Refer to the mDNS specification [RFC 6762]
@@ -154,7 +152,7 @@ public class Browse extends MulticastDNSLookupBase
             try
             {
                 broadcastDelay = broadcastDelay > 0 ? Math.min(broadcastDelay * 2, 3600) : 1;
-                scheduledExecutor.schedule(this, broadcastDelay, TimeUnit.SECONDS);
+                executors.schedule(this, broadcastDelay, TimeUnit.SECONDS);
                 
                 if (mdnsVerbose)
                 {
@@ -186,8 +184,6 @@ public class Browse extends MulticastDNSLookupBase
     }
     
     protected List browseOperations = new LinkedList();
-    
-    protected ScheduledExecutorService scheduledExecutor = defaultScheduledExecutor;
    
 
     protected Browse()
@@ -244,27 +240,6 @@ public class Browse extends MulticastDNSLookupBase
     {
         super(names, type, dclass);
     }
-    
-    
-    public static void setDefaultScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            defaultScheduledExecutor = scheduledExecutor;
-        }
-    }
-    
-    
-    public void setScheduledExecutor(ScheduledExecutorService scheduledExecutor)
-    {
-        if (scheduledExecutor != null)
-        {
-            this.scheduledExecutor = scheduledExecutor;
-        } else
-        {
-            this.scheduledExecutor = defaultScheduledExecutor;
-        }
-    }
 
 
     /**
@@ -295,10 +270,11 @@ public class Browse extends MulticastDNSLookupBase
         browseOperations.add(browseOperation);
         querier.registerListener(browseOperation);
         
-        scheduledExecutor.submit(browseOperation);
+        executors.execute(browseOperation);
     }
-
-
+    
+    Executors executors = Executors.newInstance();
+    
     public void close()
     throws IOException
     {
@@ -312,11 +288,6 @@ public class Browse extends MulticastDNSLookupBase
             {
                 // ignore
             }
-        }
-        
-        if (scheduledExecutor != null && scheduledExecutor != defaultScheduledExecutor)
-        {
-            scheduledExecutor.shutdownNow();
         }
     }
 }

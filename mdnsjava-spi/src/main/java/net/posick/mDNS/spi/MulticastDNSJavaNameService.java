@@ -1,4 +1,4 @@
-package org.xbill.mDNS.spi;
+package net.posick.mDNS.spi;
 
 import java.io.IOException;
 import java.lang.reflect.InvocationHandler;
@@ -19,7 +19,8 @@ import org.xbill.DNS.ReverseMap;
 import org.xbill.DNS.SimpleResolver;
 import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
-import org.xbill.mDNS.MulticastDNSQuerier;
+
+import net.posick.mDNS.MulticastDNSQuerier;
 
 /**
  * This class implements a Name Service Provider, which Java can use

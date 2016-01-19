@@ -1,10 +1,11 @@
 // Copyright (c) 2013 Steve Posick (posicks@gmail.com)
 
-package org.xbill.mDNS.spi;
+package net.posick.mDNS.spi;
 
 import java.lang.reflect.Proxy;
 
-import sun.net.spi.nameservice.*;
+import sun.net.spi.nameservice.NameService;
+import sun.net.spi.nameservice.NameServiceDescriptor;
 
 /**
  * The descriptor class for the mdnsjava name service provider.

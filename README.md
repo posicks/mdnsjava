@@ -17,7 +17,7 @@ The Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] & DNS-
 ## <a name="changelog"></a> Changelog
 
 ### Version 2.2.0 Changes
-* **Changed Java Package from org.xbill.mDNS -> net.posick.mdns**. mdnsjava uses dnsjava for DNS functionality, but is not an add-on to the dnsjava project.
+* **Changed Java Package from org.xbill.mDNS -> net.posick.mdns**. mdnsjava uses dnsjava for DNS functionality, but is not part of the dnsjava project.
 * **Full Maven Support**. Maven is now the build system for mdnsjava.
 
 ## <a name="dependencies"></a> Dependencies
@@ -210,16 +210,102 @@ This project was originally created for the development of a proof of concept ap
 
 ### <a name="st2071_register_capabilty"></a> Registering and Unregistering ST2071 Capabilities
 
-The SMPTE ST2071 standard defines [Capabilities](http://mdc.posick.net) as uniquely identified interfaces that describe an atomic of behavior or feature. Devices and Services are then described by listing the identities of the uniquely identified interfaces. The standard defines the DNS naming convention for these Capabilities to be in the form:
+The SMPTE ST2071 standard defines [Capabilities](http://mdc.posick.net) as uniquely identified interfaces that describe an atomic behavior or single feature. The interface identities are made globally unique by assigning each to a namespace, that namespace corresponding to a registered DNS domain name. The DNS domain name's registrant manages the names within the namespace, guaranteeing the uniqueness of each namespace/interface name combination (essencially the model used to guarantee the uniqueness of DNS hostnames).
+
+The unique interface identities should be represented as URIs with a procedure defined that facilitates the translation of the URI to a DNS domain name. Within the SMPTE ST2071 standard these identifiers are called *Uniform Capability Names* (UCNs) and are URNs in the format:
 
 ```
-'_' ${namespace} ':' ${interface_name} '_sub._mdc._tcp.' ${domain}
+'urn:smpte:ucn:' ${namespace} ':' ${interface_name} '_v' ${version}
 ```
 
-and for each device and service to also be registered using the DNS-SD name
+UCNs may also have a URI fragment `'#' ${feature name}` appended to the end, which allows for monolithic legacy interfaces to be divided into Capablities/features.
+
+Devices and Services make themselves and may make the features or the subset of the features they support discoverable by registering the DNS domain names derived from their unique identifiers. 
+
+The following is the format of the SMPTE ST2071 DNS-SD service name. The variables contained within match the values specified within the UCN format described above or any URI identity that contains their equivalent.
 
 ```
-'_mdc._tcp.' ${domain}
+'_' ${namespace} ':' ${interface_name} '_v' ${version} '_sub._mdc._tcp.' ${domain}
 ```
 
-The registration of all services using the `_mdc._tcp` name facilitates the search of all registered ST2071 devices, services and Capability enpoints.
+where `${domain}` is the DNS or mDNS domain name of the network where the implementation is deployed, e.g, `local.` or `posick.net.`.
+
+For example: 
+The interface identifiers `urn:smpte:org.example:helloworld_v1.0` or `feature://example.org/HelloWord/v1` would be translated into the DNS-SD service name `_org.example:helloworld_v1._sub._mdc._tcp.local.` for mDNS applications or `_org.example:helloworld_v1._sub._mdc._tcp.posick.net.` for DNS applications.
+
+It is important to note that `_mdc._tcp` is the DNS-SD service type for SMPTE ST2071 compliant services and that each Device, Service and Capability/feature that is registered for discovery via DNS-SD should also contain a service instance registered to a DNS PTR Resource Record named `'_mdc._tcp.' ${domain}`.
+
+For example: The Hello World example above would result in 2 registered DNS-SD service names for mDNS discovery and 2 registered DNS-SD service names for Unicast DNS discovery. This allows for the service to be discoverable in a Zeroconf fashion on the Link-local network, on a managed network or over the Internet if the domain name is a publically registered domain name.
+
+```
+_org.example:helloworld_v1._sub._mdc._tcp.local.
+_mdc._tcp.local.
+_org.example:helloworld_v1._sub._mdc._tcp.posick.net.
+_mdc._tcp.posick.net.
+```
+
+The using the `_mdc._tcp. ${domain}` service name registration allows for the discovery of all Devices, Services and Cpabilities/features that are made discoverable over the network.
+
+The example below illustrates the BIND 9 configuration for the examples discussed above for Unicast DNS applications of DNS-SD. It is a common misconception that DNS-SD only applies to mDNS, this falshood originates from limitatons in the Bonjour specification and the restrictictions of many DNS-SD/mDNS implementations. mdnsjava does not have these limitations and therefore can scale from the link-local network up to the Internet with a single discovery protocol that has no need for "gateways." Thus, allowing implementers to make services discoverable within their local network and Internet domain with minimal effort and NO modification to the service implementation.
+
+```
+$TTL    86400
+$ORIGIN posick.net.
+@    1D IN SOA    posick.net. root.posick.net. (
+     71        ; serial
+     3H        ; refresh
+     5M        ; retry
+     5M        ; expiry
+     1M )      ; minimum
+
+            1D IN NS    @
+@           1D IN A 192.168.0.1
+
+; Hosts
+server      1D IN A 192.168.0.21
+
+; DNS-SD SRV and TXT records containing all of the information needed to construct a URL to the service endpoint
+; Host Device/Server
+Server._org.smpte.st2071.device:device_v1.0._sub._mdc._tcp               1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:udn:net.posick:server" "proto=mdcp" "path=/")
+    
+; Legacy Service Interface
+LegacyInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp     1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:usn:net.posick:type=instance;Legacy" "proto=mdcp" "path=/Service/Legacy")
+    
+; Legacy Main Interface
+Legacy._net.posick:legacy_v1.0._sub._mdc._tcp                            1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:usn:net.posick:type=instance;Legacy" "proto=mdcp" "path=/Legacy")
+
+; Legacy Feature - Feature1 Interface
+LegacyFeature1._net.posick:legacy_v1.0._sub._mdc._tcp                    1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:usn:net.posick:type=instance;Legacy" "proto=mdcp" "path=/Legacy/Feature1")
+    
+; HelloWorld Service Interface
+HelloWorldInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp 1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:usn:net.posick:type=instance;HelloWorld" "proto=mdcp" "path=/Service/HelloWorld")
+    
+; HelloWorld Feature Interface
+HelloWorld._org.example:helloworld_v1.0._sub._mdc._tcp                   1M IN SRV 10 10 8080 server
+    TXT ("txtvers=1" "rn=urn:smpte:usn:net.posick:type=instance;HelloWorld" "proto=mdcp" "path=/HelloWorld")
+
+; SMPTE ST2071 Device and Service Base Discovery PTR RRs
+_mdc._tcp   1M IN PTR Server._org.smpte.st2071.device:device_v1.0._sub._mdc._tcp
+_mdc._tcp   1M IN PTR LegacyInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp
+_mdc._tcp   1M IN PTR Legacy._net.posick:legacy_v1.0._sub._mdc._tcp
+_mdc._tcp   1M IN PTR LegacyFeature1._net.posick:legacy_v1.0._sub._mdc._tcp
+_mdc._tcp   1M IN PTR HelloWorldInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp
+_mdc._tcp   1M IN PTR HelloWorld._org.example:helloworld_v1.0._sub._mdc._tcp
+
+; Pointers to the Base Device and Service interfaces
+_org.smpte.st2071.device:device_v1.0._sub._mdc._tcp   1M IN PTR Server._org.smpte.st2071.device:device_v1.0._sub._mdc._tcp
+_org.smpte.st2071.service:service_v1.0._sub._mdc._tcp 1M IN PTR LegacyInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp
+_org.smpte.st2071.service:service_v1.0._sub._mdc._tcp 1M IN PTR HelloWorldInstance._org.smpte.st2071.service:service_v1.0._sub._mdc._tcp
+
+; Pointers to the Capabilities/features
+_net.posick:legacy_v1.0._sub._mdc._tcp                1M IN PTR Legacy._net.posick:legacy_v1.0._sub._mdc._tcp
+_net.posick:legacy_v1.0#Feature1._sub._mdc._tcp       1M IN PTR LegacyFeature1._net.posick:legacy_v1.0._sub._mdc._tcp
+
+_org.example:helloworld_v1.0._sub._mdc._tcp           1M IN PTR HelloWorld._org.example:helloworld_v1.0._sub._mdc._tcp
+```
+
