@@ -12,7 +12,7 @@ The Multicast DNS (mDNS) [[RFC 6762](http://tools.ietf.org/html/rfc6762)] & DNS-
 * Browsing for DNS/mDNS Resource Records
 * Resolving/Looking up Services synchronously and asynchronously
 * Resolving/Looking up DNS/mDNS Resource Records synchronously and asynchronously
-* Tested with dnsjava versions 2.1.4, 2.1.5, 2.1.6, and 2.1.7.
+* Tested with dnsjava versions 2.1.4, 2.1.5, 2.1.6 and 2.1.7.
 
 ## <a name="changelog"></a> Changelog
 
@@ -228,6 +228,7 @@ The following is the format of the SMPTE ST2071 DNS-SD service name. The variabl
 '_' ${namespace} ':' ${interface_name} '_v' ${version} '_sub._mdc._tcp.' ${domain}
 ```
 
+<<<<<<< HEAD
 where `${domain}` is the DNS or mDNS domain name of the network where the implementation is deployed, e.g, `local.` or `posick.net.`.
 
 For example: 
@@ -309,3 +310,6 @@ _net.posick:legacy_v1.0#Feature1._sub._mdc._tcp       1M IN PTR LegacyFeature1._
 _org.example:helloworld_v1.0._sub._mdc._tcp           1M IN PTR HelloWorld._org.example:helloworld_v1.0._sub._mdc._tcp
 ```
 
+=======
+The registration of all services using the `_mdc._tcp` name facilitates the search of all registered ST2071 devices, services and Capability enpoints.
+>>>>>>> branch 'master' of https://github.com/posicks/mdnsjava.git
