@@ -3,7 +3,6 @@ package net.posick.mDNS;
 import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 import org.xbill.DNS.DClass;

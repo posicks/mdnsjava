@@ -10,17 +10,15 @@ import java.util.StringTokenizer;
 
 import org.xbill.DNS.AAAARecord;
 import org.xbill.DNS.ARecord;
-import org.xbill.DNS.Lookup;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.PTRRecord;
 import org.xbill.DNS.Record;
-import org.xbill.DNS.Resolver;
 import org.xbill.DNS.ReverseMap;
 import org.xbill.DNS.SimpleResolver;
 import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 
-import net.posick.mDNS.MulticastDNSQuerier;
+import net.posick.mDNS.Lookup;
 
 /**
  * This class implements a Name Service Provider, which Java can use
@@ -75,7 +73,7 @@ public class MulticastDNSJavaNameService implements InvocationHandler
             int n = 0;
             while (st.hasMoreTokens())
             {
-                servers[n++ ] = st.nextToken();
+                servers[n++] = st.nextToken();
                 try
                 {
                     resolvers.add(new SimpleResolver(servers[n]));
@@ -83,14 +81,6 @@ public class MulticastDNSJavaNameService implements InvocationHandler
                 {
                     System.err.println("mDNSJavaNameService: Unknown Host " + servers[n]);
                 }
-            }
-            try
-            {
-                Resolver res = new MulticastDNSQuerier(!preferV6, preferV6, (Resolver[]) resolvers.toArray(new Resolver[resolvers.size()]));
-                Lookup.setDefaultResolver(res);
-            } catch (IOException e)
-            {
-                System.err.println("mDNSJavaNameService: Error Loading mDNS Querier");
             }
         }
         
@@ -137,7 +127,13 @@ public class MulticastDNSJavaNameService implements InvocationHandler
                         byteAddresses[i] = addr;
                     }
                     return byteAddresses;
+                } else
+                {
+                    throw new IllegalArgumentException("No method matching signature \"" + method.toString() + "\".");
                 }
+            } else
+            {
+                throw new IllegalArgumentException("Unknown method \"" + method.toString() + "\".");
             }
         } catch (Throwable e)
         {
@@ -145,10 +141,9 @@ public class MulticastDNSJavaNameService implements InvocationHandler
             e.printStackTrace();
             throw e;
         }
-        throw new IllegalArgumentException("Unknown function name or arguments.");
     }
-    
-    
+
+
     /**
      * Performs a forward DNS lookup for the host name.
      * 
@@ -156,7 +151,7 @@ public class MulticastDNSJavaNameService implements InvocationHandler
      * @return All the ip addresses found for the host name.
      */
     public InetAddress[] lookupAllHostAddr(String host)
-    throws UnknownHostException
+    throws UnknownHostException, IOException
     {
         Name name = null;
         
@@ -170,13 +165,25 @@ public class MulticastDNSJavaNameService implements InvocationHandler
         
         Record[] records = null;
         if (preferV6)
-            records = new Lookup(name, Type.AAAA).run();
-        if (records == null)
-            records = new Lookup(name, Type.A).run();
-        if (records == null && !preferV6)
-            records = new Lookup(name, Type.AAAA).run();
-        if (records == null)
+        {
+            records = Lookup.lookupRecords(name, Type.AAAA);
+            if (records == null || records.length == 0)
+            {
+                records = Lookup.lookupRecords(name, Type.A);
+            }
+        } else
+        {
+            records = Lookup.lookupRecords(name, Type.A);
+            if (records == null || records.length == 0)
+            {
+                records = Lookup.lookupRecords(name, Type.AAAA);
+            }
+        }
+        
+        if (records == null || records.length == 0)
+        {
             throw new UnknownHostException(host);
+        }
             
         InetAddress[] array = new InetAddress[records.length];
         for (int i = 0; i < records.length; i++ )
@@ -203,12 +210,16 @@ public class MulticastDNSJavaNameService implements InvocationHandler
      * @return The host name found for the ip address.
      */
     public String getHostByAddr(byte[] addr)
-    throws UnknownHostException
+    throws UnknownHostException, IOException
     {
         Name name = ReverseMap.fromAddress(InetAddress.getByAddress(addr));
-        Record[] records = new Lookup(name, Type.PTR).run();
-        if (records == null)
+        Record[] records = Lookup.lookupRecords(name, Type.PTR);
+        
+        if (records == null || records.length == 0)
+        {
             throw new UnknownHostException();
+        }
+        
         return ((PTRRecord) records[0]).getTarget().toString();
     }
 }

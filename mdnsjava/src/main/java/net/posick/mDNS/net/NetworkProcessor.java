@@ -2,10 +2,7 @@ package net.posick.mDNS.net;
 
 import java.io.Closeable;
 import java.io.IOException;
-import java.net.DatagramPacket;
 import java.net.InetAddress;
-import java.net.InetSocketAddress;
-import java.net.SocketAddress;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 

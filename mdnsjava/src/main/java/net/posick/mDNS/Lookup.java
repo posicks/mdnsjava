@@ -9,6 +9,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Set;
 
+import org.xbill.DNS.DClass;
 import org.xbill.DNS.Message;
 import org.xbill.DNS.MulticastDNSUtils;
 import org.xbill.DNS.Name;
@@ -128,10 +129,24 @@ public class Lookup extends MulticastDNSLookupBase
     }
     
     
+    public Lookup(final Name name, final int type)
+    throws IOException
+    {
+        super(new Name[]{name}, type);
+    }
+    
+    
     public Lookup(final Name[] names, final int type, final int dclass)
     throws IOException
     {
         super(names, type, dclass);
+    }
+    
+    
+    public Lookup(final Name name, final int type, final int dclass)
+    throws IOException
+    {
+        super(new Name[]{name}, type, dclass);
     }
     
     
@@ -309,5 +324,103 @@ public class Lookup extends MulticastDNSLookupBase
         final List results = new ArrayList();
         results.addAll(Arrays.asList(extractServiceInstances(lookupRecords())));
         return (ServiceInstance[]) results.toArray(new ServiceInstance[results.size()]);
+    }
+    
+    
+    public static Record[] lookupRecords(Name name)
+    throws IOException
+    {
+        return lookupRecords(new Name[] {name}, Type.ANY, DClass.ANY);
+    }
+    
+    
+    public static Record[] lookupRecords(Name[] names)
+    throws IOException
+    {
+        return lookupRecords(names, Type.ANY, DClass.ANY);
+    }
+    
+    
+    public static Record[] lookupRecords(Name name, int type)
+    throws IOException
+    {
+        return lookupRecords(new Name[] {name}, type, DClass.ANY);
+    }
+    
+    
+    public static Record[] lookupRecords(Name[] names, int type)
+    throws IOException
+    {
+        return lookupRecords(names, type, DClass.ANY);
+    }
+    
+    
+    public static Record[] lookupRecords(Name name, int type, int dclass)
+    throws IOException
+    {
+        return lookupRecords(new Name[] {name}, type, dclass);
+    }
+    
+    
+    public static Record[] lookupRecords(Name[] names, int type, int dclass)
+    throws IOException
+    {
+        Lookup lookup = new Lookup(names, type, dclass);
+        try
+        {
+            return lookup.lookupRecords();
+        } finally
+        {
+            lookup.close();
+        }
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name name)
+    throws IOException
+    {
+        return lookupServices(new Name[] {name}, Type.ANY, DClass.ANY);
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name[] names)
+    throws IOException
+    {
+        return lookupServices(names, Type.ANY, DClass.ANY);
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name name, int type)
+    throws IOException
+    {
+        return lookupServices(new Name[] {name}, type, DClass.ANY);
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name[] names, int type)
+    throws IOException
+    {
+        return lookupServices(names, type, DClass.ANY);
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name name, int type, int dclass)
+    throws IOException
+    {
+        return lookupServices(new Name[] {name}, type, dclass);
+    }
+    
+    
+    public static ServiceInstance[] lookupServices(Name[] names, int type, int dclass)
+    throws IOException
+    {
+        Lookup lookup = new Lookup(names, type, dclass);
+        try
+        {
+            return lookup.lookupServices();
+        } finally
+        {
+            lookup.close();
+        }
     }
 }

@@ -48,5 +48,4 @@ public class MulticastDNSJavaNameServiceDescriptor implements NameServiceDescrip
     {
         return "mdnsjava";
     }
-    
 }
