@@ -67,7 +67,7 @@ public class ServiceName extends Name
                 }
                 
                 offsets[offsetLength] = index;
-                switch (offsetLength++ )
+                switch (offsetLength)
                 {
                     case 0:
                         protocol = byteString(labels[offsets[0]]);
@@ -78,25 +78,36 @@ public class ServiceName extends Name
                         fullType = type;
                         break;
                     case 2:
-                        break;
+                        String temp = byteString(labels[index]);
+                        if ("_sub".equals(temp))
+                        {
+                            break;
+                        } else
+                        {
+                            // Hack to make Service Name formatting more forgiving
+                            System.err.println("WARNING: The ServiceName \"" + name + "\" does not match the RFC 6763 specification, it is mising a \"_sub\" specification.");
+                        }
                     case 3:
                         StringBuilder sb = new StringBuilder();
-                        for (int i = offsets[3]; i < offsets[2]; i++ )
+                        for (int i = offsets[offsetLength]; i < offsets[offsetLength - 1]; i++ )
                         {
                             sb.append(byteString(labels[i])).append(".");
                         }
                         sb.setLength(sb.length() - 1);
                         subType = sb.toString();
-                        fullSubType = subType + "." + byteString(labels[offsets[2]]);
+                        fullSubType = subType + "._sub";
                         fullType = fullSubType + "." + type;
                         break;
+                    case 4:
+                        throw new TextParseException("Name \"" + name + "\" is not a valid RFC 6763 service name!");
                 }
+                offsetLength++;
             }
         }
         
-        if ((offsetLength <= 1) || (offsetLength == 3))
+        if (offsetLength <= 1 || type == null || type.length() == 0 || application == null || application.length() == 0)
         {
-            throw new TextParseException("Name \"" + name + "\" is not a RFC 2782 service name!");
+            throw new TextParseException("Name \"" + name + "\" is not a valid RFC 2782 service name!");
         }
         
         // Determine Instance
@@ -225,7 +236,7 @@ public class ServiceName extends Name
     public static void main(final String... args)
     throws TextParseException
     {
-        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)_test._sub._syncmate._tcp.local.");
+        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)._test._sub._syncmate._tcp.local.");
         
         ServiceName name = new ServiceName(serviceName);
         System.out.println("Service Name = " + name);
@@ -237,7 +248,7 @@ public class ServiceName extends Name
         System.out.println("Protocol: " + name.protocol);
         System.out.println("Domain: " + name.domain);
         
-        int iterations = 1000000;
+        int iterations = 100000;
         long startNanos = System.nanoTime();
         for (int index = 0; index < iterations; index++ )
         {
