@@ -7,7 +7,9 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Queue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 import org.xbill.DNS.DClass;
 import org.xbill.DNS.Message;
@@ -247,8 +249,8 @@ public class Lookup extends MulticastDNSLookupBase
     public Record[] lookupRecords()
     throws IOException
     {
-        final List messages = Collections.synchronizedList(new LinkedList());
-        final List exceptions = Collections.synchronizedList(new LinkedList());
+        final Queue messages = new ConcurrentLinkedQueue();
+        final Queue exceptions = new ConcurrentLinkedQueue();
         
         lookupRecordsAsync(new ResolverListener()
         {
