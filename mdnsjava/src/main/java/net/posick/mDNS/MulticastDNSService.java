@@ -30,12 +30,14 @@ import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.SRVRecord;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TXTRecord;
+import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 import org.xbill.DNS.Update;
 
 import net.posick.mDNS.Lookup.Domain;
 import net.posick.mDNS.utils.Executors;
 import net.posick.mDNS.utils.ListenerProcessor;
+import net.posick.mDNS.utils.Misc;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class MulticastDNSService extends MulticastDNSLookupBase
@@ -88,8 +90,14 @@ public class MulticastDNSService extends MulticastDNSLookupBase
              */
             final List replies = new ArrayList();
             Message query = Message.newQuery(Record.newRecord(service.getName(), Type.ANY, DClass.IN));
+            
+            if (service.getHost() == null)
+            {
+                throw new IOException("Service Records must have a target, aka. Host value set.");
+            }
+            
             SRVRecord srvRecord = new SRVRecord(service.getName(), DClass.IN, 3600, 0, 0, service.getPort(), service.getHost());
-            query.addRecord(srvRecord, Section.AUTHORITY);
+            //query.addRecord(srvRecord, Section.AUTHORITY);
             // TODO: Add support for Unicast answers for first query mDNS.createQuery(DClass.IN + 0x8000, Type.ANY, service.getName());
             
             int tries = 0;
@@ -147,7 +155,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                             } else
                             {
                                 Message message = (Message) o;
-                                if (message.getRcode() == Rcode.NOERROR)
+                                if (message.getRcode() == Rcode.NOERROR || message.getRcode() == Rcode.FORMERR) // FORMERR Added to support non RFC 6763 compliant service names and structures, such as lacking a TXT reccord.
                                 {
                                     Record[] records = MulticastDNSUtils.extractRecords(message, Section.ANSWER, Section.AUTHORITY, Section.ADDITIONAL);
                                     for (int r = 0; r < records.length; r++ )
@@ -157,7 +165,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                             if (!srvRecord.equals(records[r]))
                                             {
                                                 // Another Service with this same name was found, so registration must fail.
-                                                return null;
+                                                throw new ServiceRegistrationException(ServiceRegistrationException.REASON.SERVICE_NAME_ALREADY_EXISTS, "A service with name \"" + service.getName() + "\" already exists.");
                                             }
                                         }
                                     }
@@ -176,7 +184,17 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                                    new Update(domain)};
             Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
             Name typeName = new Name(serviceName.getType() + "." + domain);
-            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            ServiceName shortSRVName;
+            try
+            {
+                shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            } catch (TextParseException e)
+            {
+                TextParseException tpe = new TextParseException("The Service Instance name must be set.");
+                tpe.initCause(e);
+                tpe.setStackTrace(e.getStackTrace());
+                throw tpe;
+            }
             
             try
             {
@@ -393,7 +411,8 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 }
             }
             
-            return null;
+            // TODO: Why is it getting here???!!!
+            throw new ServiceRegistrationException(ServiceRegistrationException.REASON.UNKNOWN);
         }
     }
     
@@ -1055,5 +1074,79 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         }
         
         return false;
+    }
+    
+    
+    public static final void main(String[] args)
+    throws IOException
+    {
+        final String type = "_test._sub._syncmate._tcp";
+        final String name = "Steve Posick's Service." + type;
+        final String domain = "localhost.";
+        final Name domainName = new Name(domain);
+        final ServiceName serviceName = new ServiceName(name, domainName);
+        
+        MulticastDNSService service = null;
+        
+        try
+        {
+            service = new MulticastDNSService();
+            service.startServiceDiscovery(new Browse(type), new DNSSDListener()
+            {
+                public void serviceRemoved(Object id, ServiceInstance service)
+                {
+                    System.out.println("Service Removed " + service.getNiceText());
+                }
+                
+                
+                public void serviceDiscovered(Object id, ServiceInstance service)
+                {
+                    System.out.println("Service Discovered " + service.getNiceText());
+                }
+                
+                
+                public void receiveMessage(Object id, Message m)
+                {
+                    System.out.println("Message Received \n" + m);
+                }
+                
+                
+                public void handleException(Object id, Exception e)
+                {
+                    System.out.println("Exception \n" + e);
+                }
+            });
+            
+            System.out.println("Registering Service \"" + name + "\" in domain \"" + domain + "\".");
+            
+            ServiceInstance serviceInstance = service.register(new ServiceInstance(serviceName, domainName));
+            
+            System.out.println("Service \"" + serviceName + "\" registered in domain \"" + domainName + "\" as \n" + serviceInstance);
+            
+            try
+            {
+                System.out.println("Waiting for registration events.");
+                Thread.sleep(3000);
+            } catch (InterruptedException e)
+            {
+                System.err.println("Interrupted! - " + e.toString());
+            }
+            
+            System.out.println("Unregistering Service \"" + name + "\" in domain \"" + domain + "\".");
+            
+            service.unregister(serviceInstance);
+            
+            try
+            {
+                System.out.println("Waiting for unregistration events.");
+                Thread.sleep(3000);
+            } catch (InterruptedException e)
+            {
+                System.err.println("Interrupted! - " + e.toString());
+            }
+        } finally
+        {
+            Misc.close(service);
+        }
     }
 }

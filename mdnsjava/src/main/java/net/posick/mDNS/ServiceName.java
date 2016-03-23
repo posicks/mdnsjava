@@ -5,12 +5,14 @@ import java.text.DecimalFormat;
 import org.xbill.DNS.Name;
 import org.xbill.DNS.TextParseException;
 
+import net.posick.mDNS.utils.Misc;
+
 public class ServiceName extends Name
 {
     private static final long serialVersionUID = 201305151047L;
     
     /* Used for printing non-printable characters */
-    private static final DecimalFormat byteFormat = new DecimalFormat();
+    private static final DecimalFormat byteFormat = new DecimalFormat("000");
     
     private String instance;
     
@@ -52,22 +54,34 @@ public class ServiceName extends Name
         
         int labelCount = name.labels();
         byte[][] labels = new byte[labelCount][];
-        int[] offsets = new int[4];
-        int offsetLength = 0;
+        int[] offsets = new int[labelCount];
+        int offsetIndex = 0;
         
-        // Traverse the labels to find the protocol specification (currently limited to _tcp or _udp).
-        for (int index = labelCount - 1; index >= 0; index-- )
+        StringBuilder domain = new StringBuilder();
+        StringBuilder subType = new StringBuilder();
+        StringBuilder subTypeIndicator = new StringBuilder();
+        StringBuilder instance = new StringBuilder();
+
+        boolean serviceName = false;
+        
+        // Traverse the labels to find the protocol specification (currently limited to _tcp or _udp),
+        // the application, and any RFC 6763 subtypes. Supports RFC 2782 & RFC 6763
+        // Notes: All name parts before the first name part beginning with an underscore "_" are parts of the domain name.
+        //        All name parts after the first name part beginning with an underscore "_" are parts of the service name.
+        int index;
+        loop:
+        for (index = labelCount - 1; index > 0; index--)
         {
             labels[index] = name.getLabel(index);
             if ((labels[index][0] > 0) && (labels[index][1] == '_'))
             {
-                if (offsetLength > offsets.length)
-                {
-                    throw new TextParseException("Name \"" + name + "\" is not a RFC 2782 service name!");
-                }
-                
-                offsets[offsetLength] = index;
-                switch (offsetLength)
+                serviceName = true;
+            }
+            
+            if (serviceName)
+            {
+                offsets[offsetIndex] = index;
+                switch (offsetIndex)
                 {
                     case 0:
                         protocol = byteString(labels[offsets[0]]);
@@ -75,70 +89,63 @@ public class ServiceName extends Name
                     case 1:
                         application = byteString(labels[offsets[1]]);
                         type = application + "." + protocol;
-                        fullType = type;
                         break;
-                    case 2:
-                        String temp = byteString(labels[index]);
-                        if ("_sub".equals(temp))
-                        {
-                            break;
-                        } else
-                        {
-                            // Hack to make Service Name formatting more forgiving
-                            System.err.println("WARNING: The ServiceName \"" + name + "\" does not match the RFC 6763 specification, it is mising a \"_sub\" specification.");
+                    default:
+                        if (labels[index][0] > 0) // if Length > 0
+                        { 
+                            if (labels[index][1] == '_') // if 1st character is an underscore '_'
+                            {
+                                String namePart = byteString(labels[index]);
+                                if ("_sub".equals(namePart))
+                                {
+                                    subTypeIndicator.insert(0, namePart + ".");
+                                } else
+                                {
+                                    subType.insert(0, namePart + ".");
+                                }
+                            } else
+                            {
+                                break loop;
+                            }
                         }
-                    case 3:
-                        StringBuilder sb = new StringBuilder();
-                        for (int i = offsets[offsetLength]; i < offsets[offsetLength - 1]; i++ )
-                        {
-                            sb.append(byteString(labels[i])).append(".");
-                        }
-                        sb.setLength(sb.length() - 1);
-                        subType = sb.toString();
-                        fullSubType = subType + "._sub";
-                        fullType = fullSubType + "." + type;
                         break;
-                    case 4:
-                        throw new TextParseException("Name \"" + name + "\" is not a valid RFC 6763 service name!");
                 }
-                offsetLength++;
-            }
-        }
-        
-        if (offsetLength <= 1 || type == null || type.length() == 0 || application == null || application.length() == 0)
-        {
-            throw new TextParseException("Name \"" + name + "\" is not a valid RFC 2782 service name!");
-        }
-        
-        // Determine Instance
-        if (offsets[offsetLength - 1] > 0)
-        {
-            StringBuilder instance = new StringBuilder();
-            for (int index = offsets[offsetLength - 1] - 1; index >= 0; index-- )
+                offsetIndex++;
+            } else
             {
-                instance.append(byteString(labels[index]));
-            }
-            this.instance = instance.length() > 0 ? instance.toString() : null;
-        }
-        
-        // Determine Domain
-        if (offsets[0] > 0)
-        {
-            StringBuilder domain = new StringBuilder();
-            for (int index = offsets[0] + 1; index < labels.length; index++ )
-            {
-                if ((labels[index] != null) && (labels[index][0] > 0))
+                if (labels[index][0] == 0)
                 {
-                    domain.append(byteString(labels[index])).append(".");
+                    domain.insert(0, ".");
+                } else
+                {
+                    domain.insert(0, byteString(labels[index]));
                 }
             }
-            this.domain = domain.toString();
-        } else
-        {
-            domain = ".";
         }
         
-        serviceTypeName = new Name(fullType + "." + domain);
+        for (; index >= 0; index--)
+        {
+            labels[index] = name.getLabel(index);
+            if (labels[index][0] > 0)
+            {
+                String namePart = byteString(labels[index]);
+                if (labels[index][1] == '_')
+                {
+                    subType.insert(0, namePart + ".");
+                } else
+                {
+                    instance.insert(0, namePart + ".");
+                }
+            }
+        }
+        
+        this.fullSubType = Misc.trimTrailingDot(subType.toString() + (subTypeIndicator.length() > 0 ? subTypeIndicator.toString() : ""));
+        this.subType = Misc.trimTrailingDot(subType).toString();
+        this.instance = Misc.trimTrailingDot(instance).toString();
+        this.domain = domain.toString();
+        this.fullType = this.instance + this.fullSubType + this.type;
+        
+        serviceTypeName = new Name(this.fullType + "." + this.domain);
     }
     
     
@@ -236,7 +243,8 @@ public class ServiceName extends Name
     public static void main(final String... args)
     throws TextParseException
     {
-        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick\\226\\128\\153s Work MacBook Pro (posicks)._test._sub._syncmate._tcp.local.");
+//        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick's Work MacBook Pro._test._sub._syncmate._tcp.local.");
+        Name serviceName = new Name(args.length > 0 ? args[0] : "steve.posick._steve._test._sub._syncmate._tcp.local.");
         
         ServiceName name = new ServiceName(serviceName);
         System.out.println("Service Name = " + name);

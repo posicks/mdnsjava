@@ -48,6 +48,13 @@ public class ServiceInstance implements Serializable
     }
     
     
+    public ServiceInstance(final ServiceName name, Name host)
+    {
+        this.name = name;
+        this.host = host;
+    }
+    
+    
     public ServiceInstance(final ServiceName name, final int priority, final int weight, final int port, final Name host/* , long ttl */, final InetAddress[] addresses, final Collection textRecords)
     {
         this(name, priority, weight, port, host/* , ttl */, addresses, parseTextRecords(textRecords));
