@@ -10,12 +10,20 @@ import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
 
+import org.xbill.DNS.Options;
+
 public class DatagramProcessor extends NetworkProcessor
 {
     // The default UDP datagram payload size
     protected int maxPayloadSize = 512;
     
     protected boolean isMulticast = false;
+    
+    protected boolean loopbackModeDisabled = false;
+    
+    protected boolean reuseAddress = true;
+    
+    protected int ttl = 255;
     
     protected DatagramSocket socket;
     
@@ -38,9 +46,31 @@ public class DatagramProcessor extends NetworkProcessor
             MulticastSocket socket = new MulticastSocket(port);
             
             // Set the IP TTL to 255, per the mDNS specification [RFC 6762].
-            socket.setLoopbackMode(true);
-            socket.setReuseAddress(true);
-            socket.setTimeToLive(255);
+            String temp;
+            if ((temp = Options.value("mdns_multicast_loopback")) != null && temp.length() > 0)
+            {
+                loopbackModeDisabled = "true".equalsIgnoreCase(temp) || "t".equalsIgnoreCase(temp) || "yes".equalsIgnoreCase(temp) || "y".equalsIgnoreCase(temp);
+            }
+            
+            if ((temp = Options.value("mdns_socket_ttl")) != null && temp.length() > 0)
+            {
+                try
+                {
+                    ttl = Integer.valueOf(temp);
+                } catch (NumberFormatException e)
+                {
+                    // ignore
+                }
+            }
+            
+            if ((temp = Options.value("mdns_reuse_address")) != null && temp.length() > 0)
+            {
+                reuseAddress = "true".equalsIgnoreCase(temp) || "t".equalsIgnoreCase(temp) || "yes".equalsIgnoreCase(temp) || "y".equalsIgnoreCase(temp);
+            }
+            
+            socket.setLoopbackMode(loopbackModeDisabled);
+            socket.setReuseAddress(reuseAddress);
+            socket.setTimeToLive(ttl);
             
             socket.setInterface(ifaceAddress);
             
@@ -132,6 +162,24 @@ public class DatagramProcessor extends NetworkProcessor
         }
         
         socket.close();
+    }
+    
+    
+    public boolean isLoopbackModeDisabled()
+    {
+        return loopbackModeDisabled;
+    }
+
+
+    public boolean isReuseAddress()
+    {
+        return reuseAddress;
+    }
+    
+    
+    public int getTTL()
+    {
+        return ttl;
     }
     
     
@@ -227,14 +275,6 @@ public class DatagramProcessor extends NetworkProcessor
             ioe.setStackTrace(e.getStackTrace());
             throw ioe;
         }
-    }
-    
-    
-    @Override
-    public void setAddress(final InetAddress address)
-    {
-        super.setAddress(address);
-        isMulticast = address.isMulticastAddress();
     }
     
     

@@ -37,7 +37,6 @@ import org.xbill.DNS.Update;
 import net.posick.mDNS.Lookup.Domain;
 import net.posick.mDNS.utils.Executors;
 import net.posick.mDNS.utils.ListenerProcessor;
-import net.posick.mDNS.utils.Misc;
 
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class MulticastDNSService extends MulticastDNSLookupBase
@@ -1074,79 +1073,5 @@ public class MulticastDNSService extends MulticastDNSLookupBase
         }
         
         return false;
-    }
-    
-    
-    public static final void main(String[] args)
-    throws IOException
-    {
-        final String type = "_test._sub._syncmate._tcp";
-        final String name = "Steve Posick's Service." + type;
-        final String domain = "localhost.";
-        final Name domainName = new Name(domain);
-        final ServiceName serviceName = new ServiceName(name, domainName);
-        
-        MulticastDNSService service = null;
-        
-        try
-        {
-            service = new MulticastDNSService();
-            service.startServiceDiscovery(new Browse(type), new DNSSDListener()
-            {
-                public void serviceRemoved(Object id, ServiceInstance service)
-                {
-                    System.out.println("Service Removed " + service.getNiceText());
-                }
-                
-                
-                public void serviceDiscovered(Object id, ServiceInstance service)
-                {
-                    System.out.println("Service Discovered " + service.getNiceText());
-                }
-                
-                
-                public void receiveMessage(Object id, Message m)
-                {
-                    System.out.println("Message Received \n" + m);
-                }
-                
-                
-                public void handleException(Object id, Exception e)
-                {
-                    System.out.println("Exception \n" + e);
-                }
-            });
-            
-            System.out.println("Registering Service \"" + name + "\" in domain \"" + domain + "\".");
-            
-            ServiceInstance serviceInstance = service.register(new ServiceInstance(serviceName, domainName));
-            
-            System.out.println("Service \"" + serviceName + "\" registered in domain \"" + domainName + "\" as \n" + serviceInstance);
-            
-            try
-            {
-                System.out.println("Waiting for registration events.");
-                Thread.sleep(3000);
-            } catch (InterruptedException e)
-            {
-                System.err.println("Interrupted! - " + e.toString());
-            }
-            
-            System.out.println("Unregistering Service \"" + name + "\" in domain \"" + domain + "\".");
-            
-            service.unregister(serviceInstance);
-            
-            try
-            {
-                System.out.println("Waiting for unregistration events.");
-                Thread.sleep(3000);
-            } catch (InterruptedException e)
-            {
-                System.err.println("Interrupted! - " + e.toString());
-            }
-        } finally
-        {
-            Misc.close(service);
-        }
     }
 }

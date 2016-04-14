@@ -114,7 +114,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         threadMonitoring = Options.check("mdns_network_thread_monitor");
         
         setInterfaceAddress(ifaceAddress);
-        setAddress(address);
+        this.address = address;
         setPort(port);
         
         if (ifaceAddress.getAddress().length != address.getAddress().length)
@@ -190,12 +190,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     
     public abstract void send(byte[] data)
     throws IOException;
-    
-    
-    public void setAddress(final InetAddress address)
-    {
-        this.address = address;
-    }
     
     
     public void setInterfaceAddress(final InetAddress address)
