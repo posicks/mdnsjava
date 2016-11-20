@@ -48,7 +48,7 @@ public class ListenerProcessor<T> implements Closeable
         public Object invoke(final Object proxy, final Method method, final Object[] args)
         throws Throwable
         {
-            Object[] tempListeners = Arrays.copyOf(processor.listeners, processor.listeners.length);
+            Object[] tempListeners = processor.listeners;
             for (Object listener : tempListeners)
             {
                 try
@@ -178,7 +178,7 @@ public class ListenerProcessor<T> implements Closeable
     }
     
     
-    protected Class<?>[] getAllInterfaces(final Class<?> clazz)
+    protected static final Class<?>[] getAllInterfaces(final Class<?> clazz)
     {
         LinkedHashSet<Class<?>> set = new LinkedHashSet<Class<?>>();
         Stack<Class<?>> stack = new Stack<Class<?>>();
