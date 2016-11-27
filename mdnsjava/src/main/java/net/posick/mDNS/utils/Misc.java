@@ -60,7 +60,7 @@ public class Misc
             char ch = string.charAt(index);
             if (ch != '.' && !Character.isWhitespace(ch))
             {
-                return string.substring(0, index);
+                return string.substring(0, index + 1);
             }
         }
         return string;

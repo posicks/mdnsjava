@@ -1,6 +1,7 @@
 package net.posick.mDNS;
 
 import java.text.DecimalFormat;
+import java.util.Arrays;
 
 import org.xbill.DNS.Name;
 import org.xbill.DNS.TextParseException;
@@ -56,96 +57,88 @@ public class ServiceName extends Name
         byte[][] labels = new byte[labelCount][];
         int[] offsets = new int[labelCount];
         int offsetIndex = 0;
-        
+
+        int serviceLabelCount = 0;
+        byte[][] serviceLabels = new byte[labelCount][];
+
         StringBuilder domain = new StringBuilder();
+        StringBuilder type = new StringBuilder();
         StringBuilder subType = new StringBuilder();
-        StringBuilder subTypeIndicator = new StringBuilder();
         StringBuilder instance = new StringBuilder();
 
         boolean serviceName = false;
+        boolean hasSub = false;
         
-        // Traverse the labels to find the protocol specification (currently limited to _tcp or _udp),
+        // Traverse the labels to find the protocol specification (usually _tcp or _udp),
         // the application, and any RFC 6763 subtypes. Supports RFC 2782 & RFC 6763
         // Notes: All name parts before the first name part beginning with an underscore "_" are parts of the domain name.
         //        All name parts after the first name part beginning with an underscore "_" are parts of the service name.
+        byte[] SUB_SERVICE_INDICATOR = {4, '_', 's', 'u', 'b'};
         int index;
-        loop:
-        for (index = labelCount - 1; index > 0; index--)
+        for (index = labelCount - 1; index >= 0; index--)
         {
             labels[index] = name.getLabel(index);
             if ((labels[index][0] > 0) && (labels[index][1] == '_'))
             {
                 serviceName = true;
-            }
-            
-            if (serviceName)
-            {
+                serviceLabels[serviceLabelCount] = labels[index];
                 offsets[offsetIndex] = index;
-                switch (offsetIndex)
+                if (serviceLabelCount == 0)
                 {
-                    case 0:
-                        protocol = byteString(labels[offsets[0]]);
-                        break;
-                    case 1:
-                        application = byteString(labels[offsets[1]]);
-                        type = application + "." + protocol;
-                        break;
-                    default:
-                        if (labels[index][0] > 0) // if Length > 0
-                        { 
-                            if (labels[index][1] == '_') // if 1st character is an underscore '_'
-                            {
-                                String namePart = byteString(labels[index]);
-                                if ("_sub".equals(namePart))
-                                {
-                                    subTypeIndicator.insert(0, namePart + ".");
-                                } else
-                                {
-                                    subType.insert(0, namePart + ".");
-                                }
-                            } else
-                            {
-                                break loop;
-                            }
-                        }
-                        break;
+                    this.protocol = byteString(labels[index]);
+                } else
+                {
+                    if (Arrays.equals(labels[index], SUB_SERVICE_INDICATOR))
+                    {
+                        hasSub = true;
+                        continue;
+                    }
+                    
+                    if (hasSub)
+                    {
+                        subType.insert(0, ".").insert(0, byteString(labels[index]));
+                    } else
+                    {
+                        type.insert(0, ".").insert(0, byteString(labels[index]));
+                    }
                 }
-                offsetIndex++;
+                serviceLabelCount++;
             } else
             {
-                if (labels[index][0] == 0)
+                if (serviceName)
                 {
-                    domain.insert(0, ".");
+                    if (labels[index][0] == 0)
+                    {
+                        instance.append(".");
+                    } else
+                    {
+                        instance.insert(0, ".").insert(0, byteString(labels[index]));
+                    }
                 } else
                 {
-                    domain.insert(0, byteString(labels[index]));
+                    if (labels[index][0] != 0)
+                    {
+                        domain.insert(0, ".").insert(0, byteString(labels[index]));
+                    }
                 }
+                offsets[offsetIndex] = index;
             }
+            offsetIndex++;
         }
-        
-        for (; index >= 0; index--)
+        this.domain = domain.length() > 0 ? domain.toString() : null;
+        this.type = type.toString() + this.protocol;
+        this.application = Misc.trimTrailingDot(type.toString());
+        if (hasSub && subType.length() > 0)
         {
-            labels[index] = name.getLabel(index);
-            if (labels[index][0] > 0)
-            {
-                String namePart = byteString(labels[index]);
-                if (labels[index][1] == '_')
-                {
-                    subType.insert(0, namePart + ".");
-                } else
-                {
-                    instance.insert(0, namePart + ".");
-                }
-            }
+            this.subType =  Misc.trimTrailingDot(subType.toString());
+            this.fullSubType = subType.toString() + "_sub";
+            this.fullType = this.fullSubType + "." + this.type;
+        } else
+        {
+            this.fullType = this.type;
         }
-        
-        this.fullSubType = Misc.trimTrailingDot(subType.toString() + (subTypeIndicator.length() > 0 ? subTypeIndicator.toString() : ""));
-        this.subType = Misc.trimTrailingDot(subType).toString();
-        this.instance = Misc.trimTrailingDot(instance).toString();
-        this.domain = domain.toString();
-        this.fullType = this.instance + this.fullSubType + this.type;
-        
-        serviceTypeName = new Name(this.fullType + "." + this.domain);
+        this.instance = instance.length() > 0 ? Misc.trimTrailingDot(instance.toString()) : null;
+        this.serviceTypeName = name;
     }
     
     
@@ -243,8 +236,10 @@ public class ServiceName extends Name
     public static void main(final String... args)
     throws TextParseException
     {
-//        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick's Work MacBook Pro._test._sub._syncmate._tcp.local.");
-        Name serviceName = new Name(args.length > 0 ? args[0] : "steve.posick._steve._test._sub._syncmate._tcp.local.");
+        Name serviceName = new Name(args.length > 0 ? args[0] : "Steve Posick's Work MacBook Pro._test._sub._syncmate._tcp.local.");
+//        Name serviceName = new Name(args.length > 0 ? args[0] : "steve.posick._steve._test._sub._syncmate._tcp.local.");
+//        Name serviceName = new Name(args.length > 0 ? args[0] : "_syncmate._tcp.local.");
+//        Name serviceName = new Name(args.length > 0 ? args[0] : "_syncmate._tcp.local.");
         
         ServiceName name = new ServiceName(serviceName);
         System.out.println("Service Name = " + name);
@@ -263,6 +258,6 @@ public class ServiceName extends Name
             name = new ServiceName(serviceName);
         }
         long tookNanos = System.nanoTime() - startNanos;
-        System.out.println("Took " + ((double) tookNanos / (double) 1000000) + " milliseonds to parse " + iterations + " service names at " + (tookNanos / iterations) + " nanoseconds each name");
+        System.out.println("Took " + ((double) tookNanos / (double) 1000000) + " milliseconds to parse " + iterations + " service names at " + (double) ((double) (tookNanos / iterations) / (double) 1000000) + " millis / " + (tookNanos / iterations) + " nanoseconds each name");
     }
 }
