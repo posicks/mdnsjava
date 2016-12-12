@@ -7,6 +7,8 @@ import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.Options;
 
@@ -14,6 +16,9 @@ import net.posick.mDNS.net.NetworkProcessor;
 
 public class Executors
 {
+    public static final Logger logger = Misc.getLogger(Executors.class.getName(), Options.check("executors"));
+    
+    
     public static final int DEFAULT_NETWORK_THREAD_PRIORITY = Thread.NORM_PRIORITY + 2;
     
     public static final int CORE_THREADS_NETWORK_EXECUTOR = 5;
@@ -172,7 +177,7 @@ public class Executors
         {
             public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor)
             {
-                System.err.println("Network Processing Queue Rejected Packet it is FULL. [size: " + executor.getQueue().size() + "]");
+                logger.logp(Level.WARNING, getClass().getName(), "net.posick.mDNS.utils.RejectedExecutionHandler", "rejectedExecution", "Network Processing Queue Rejected Packet it is FULL. [size: " + executor.getQueue().size() + "]");
             }
         });
         value = Options.value("mdns_executor_core_threads");

@@ -9,6 +9,8 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.AAAARecord;
 import org.xbill.DNS.ARecord;
@@ -27,9 +29,13 @@ import org.xbill.DNS.TXTRecord;
 import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 
+import net.posick.mDNS.utils.Misc;
+
 @SuppressWarnings({"unchecked", "rawtypes"})
 public abstract class MulticastDNSLookupBase implements Closeable, Constants
 {
+    protected static final Logger logger = Misc.getLogger(MulticastDNSLookupBase.class.getName(), Options.check("mdns_verbose") || Options.check("verbose"));
+    
     protected static Querier defaultQuerier;
     
     protected static Name[] defaultSearchPath;
@@ -128,8 +134,6 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     
     protected Message[] queries;
     
-    protected boolean mdnsVerbose;
-    
     
     public MulticastDNSLookupBase(final Name... names)
     throws IOException
@@ -164,6 +168,20 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     }
     
     
+    public MulticastDNSLookupBase(final String name, final int type)
+    throws IOException
+    {
+        this(new String[] {name}, type, DClass.ANY);
+    }
+    
+    
+    public MulticastDNSLookupBase(final String name, final int type, final int dclass)
+    throws IOException
+    {
+        this(new String[] {name}, type, DClass.ANY);
+    }
+    
+    
     public MulticastDNSLookupBase(final String[] names, final int type)
     throws IOException
     {
@@ -188,9 +206,9 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                         domainNames.add(new Name(names[index]));
                     } catch (TextParseException e)
                     {
-                        if (mdnsVerbose)
+                        if (logger.isLoggable(Level.FINE))
                         {
-                            System.err.println("Error parsing \"" + names[index] + "\" - " + e.getMessage());
+                            logger.log(Level.FINE, "Error parsing \"" + names[index] + "\" - " + e.getMessage(), e);
                         }
                     }
                 } else
@@ -202,9 +220,9 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                             domainNames.add(new Name(names[index] + "." + searchPath[i]));
                         } catch (TextParseException e)
                         {
-                            if (mdnsVerbose)
+                            if (logger.isLoggable(Level.FINE))
                             {
-                                System.err.println("Error parsing \"" + (names[index] + "." + searchPath[i]) + "\" - " + e.getMessage());
+                                logger.log(Level.FINE, "Error parsing \"" + (names[index] + "." + searchPath[i]) + "\" - " + e.getMessage(), e);
                             }
                         }
                     }
@@ -226,8 +244,6 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     throws IOException
     {
         super();
-        
-        mdnsVerbose = Options.check("mdns_verbose") || Options.check("verbose");
         
         querier = getDefaultQuerier();
         searchPath = getDefaultSearchPath();
@@ -501,10 +517,9 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                             searchNames.add(absoluteName);
                         } catch (NameTooLongException e)
                         {
-                            if (mdnsVerbose)
+                            if (logger.isLoggable(Level.FINE))
                             {
-                                System.err.println(e.getMessage());
-                                e.printStackTrace(System.err);
+                                logger.log(Level.FINE, e.getMessage(), e);
                             }
                         }
                     }
@@ -535,8 +550,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                 defaultQuerier = new MulticastDNSQuerier(true, true);
             } catch (IOException e)
             {
-                System.err.println(e.getMessage());
-                e.printStackTrace(System.err);
+                logger.log(Level.WARNING, e.getMessage(), e);
             }
         }
         
@@ -656,7 +670,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
                         services.put(service.getName(), service);
                     } catch (TextParseException e)
                     {
-                        System.err.println("Error processing SRV record \"" + record.getName() + "\" - " + e.getMessage());
+                        logger.log(Level.WARNING, "Error processing SRV record \"" + record.getName() + "\" - " + e.getMessage(), e);
                     }
                     break;
                 case Type.PTR:

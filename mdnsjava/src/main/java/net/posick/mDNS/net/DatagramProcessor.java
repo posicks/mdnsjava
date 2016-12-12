@@ -9,6 +9,7 @@ import java.net.MulticastSocket;
 import java.net.NetworkInterface;
 import java.net.SocketException;
 import java.util.Enumeration;
+import java.util.logging.Level;
 
 import org.xbill.DNS.Options;
 
@@ -63,10 +64,13 @@ public class DatagramProcessor extends NetworkProcessor
                 }
             }
             
+            /*
             if ((temp = Options.value("mdns_reuse_address")) != null && temp.length() > 0)
             {
                 reuseAddress = "true".equalsIgnoreCase(temp) || "t".equalsIgnoreCase(temp) || "yes".equalsIgnoreCase(temp) || "y".equalsIgnoreCase(temp);
             }
+            */
+            reuseAddress = true;
             
             socket.setLoopbackMode(loopbackModeDisabled);
             socket.setReuseAddress(reuseAddress);
@@ -106,7 +110,7 @@ public class DatagramProcessor extends NetworkProcessor
             } catch (SocketException e)
             {
                 netIface = null;
-                System.err.println("Error getting MTU from Network Interface " + netIface + ".");
+                logger.logp(Level.WARNING, getClass().getName(), "DatagramProcessor.<init>", "Error getting MTU from Network Interface " + netIface + ". Using default MTU.");
             }
         }
         
@@ -146,18 +150,10 @@ public class DatagramProcessor extends NetworkProcessor
                 ((MulticastSocket) socket).leaveGroup(address);
             } catch (SecurityException e)
             {
-                if (verboseLogging)
-                {
-                    System.err.println("Security issue leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage());
-                    e.printStackTrace(System.err);
-                }
+                logger.log(Level.WARNING, "A Security error occurred while leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage(), e);
             } catch (Exception e)
             {
-                if (verboseLogging)
-                {
-                    System.err.println("Error leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage());
-                    e.printStackTrace(System.err);
-                }
+                logger.log(Level.WARNING, "Error leaving Multicast Group \"" + address.getAddress() + "\" - " + e.getMessage(), e);
             }
         }
         
@@ -216,23 +212,21 @@ public class DatagramProcessor extends NetworkProcessor
                 if (datagram.getLength() > 0)
                 {
                     Packet packet = new Packet(datagram);
-                    if (verboseLogging)
+                    if (logger.isLoggable(Level.FINE))
                     {
-                        System.err.println("-----> Received packet " + packet.id + " <-----");
+                        logger.logp(Level.FINE, getClass().getName(), "run", "-----> Received packet " + packet.id + " <-----");
                         packet.timer.start();
                     }
                     executors.executeNetworkTask(new PacketRunner(listener, packet));
                 }
             } catch (SecurityException e)
             {
-                System.err.println("Security issue receiving data from \"" + address + "\" - " + e.getMessage());
-                e.printStackTrace(System.err);
+                logger.log(Level.WARNING, "Security issue receiving data from \"" + address + "\" - " + e.getMessage(), e);
             } catch (Exception e)
             {
-                if (!exit)
+                if (!exit || logger.isLoggable(Level.FINE))
                 {
-                    System.err.println("Error receiving data from \"" + address + "\" - " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, "Error receiving data from \"" + address + "\" - " + e.getMessage(), e);
                 }
             }
         }
@@ -260,13 +254,9 @@ public class DatagramProcessor extends NetworkProcessor
             socket.send(packet);
         } catch (IOException e)
         {
-            if (verboseLogging)
-            {
-                System.err.println("Error sending datagram to \"" + packet.getSocketAddress() + "\".");
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.FINE, "Error sending datagram to \"" + packet.getSocketAddress() + "\".", e);
             
-            if ("No route to host".equalsIgnoreCase(e.getMessage()))
+            if ("no route to host".equalsIgnoreCase(e.getMessage()))
             {
                 close();
             }

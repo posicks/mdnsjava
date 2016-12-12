@@ -5,6 +5,8 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.ExtendedResolver;
 import org.xbill.DNS.Flags;
@@ -22,6 +24,7 @@ import org.xbill.DNS.Section;
 import org.xbill.DNS.TSIG;
 
 import net.posick.mDNS.utils.ListenerProcessor;
+import net.posick.mDNS.utils.Misc;
 
 /**
  * The MulticastDNSQuerier is a responder that integrates multicast and unicast DNS in accordance to the
@@ -33,6 +36,8 @@ import net.posick.mDNS.utils.ListenerProcessor;
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class MulticastDNSQuerier implements Querier
 {
+    private static final Logger logger = Misc.getLogger(MulticastDNSQuerier.class, Options.check("mds_verbose") || Options.check("verbose"));
+    
     protected static class Resolution implements ResolverListener
     {
         private MulticastDNSQuerier querier = null;
@@ -191,10 +196,7 @@ public class MulticastDNSQuerier implements Querier
         {
             if ((requestIDs.size() != 0) && (!requestIDs.contains(id) || (this != id) || !equals(id)))
             {
-                if (mdnsVerbose)
-                {
-                    System.out.println("!!!!! Exception Received for ID - " + id + ".");
-                }
+                logger.logp(Level.FINE, getClass().getName(), "handleException", "!!!!! Exception Received for ID - " + id + ".");
                 synchronized (responses)
                 {
                     responses.add(new Response(id, exception));
@@ -212,8 +214,7 @@ public class MulticastDNSQuerier implements Querier
                 {
                     msg += "[Request ID does not match Response ID - " + id + " ] ";
                 }
-                System.err.println(msg);
-                exception.printStackTrace(System.err);
+                logger.logp(Level.FINE, getClass().getName(), "handleException", msg, exception);
             }
         }
         
@@ -243,10 +244,7 @@ public class MulticastDNSQuerier implements Querier
         {
             if ((requestIDs.size() == 0) || requestIDs.contains(id) || (this == id) || equals(id) || MulticastDNSUtils.answersAny(query, message))
             {
-                if (mdnsVerbose)
-                {
-                    System.out.println("!!!! Message Received - " + id + " - " + query.getQuestion());
-                }
+                logger.logp(Level.FINE, getClass().getName(), "receiveMessage", "!!!! Message Received - " + id + " - " + query.getQuestion());
                 synchronized (responses)
                 {
                     responses.add(new Response(this, message));
@@ -269,8 +267,7 @@ public class MulticastDNSQuerier implements Querier
                 {
                     msg += "[Response does not answer Query]";
                 }
-                System.err.println(msg);
-                System.err.println(message);
+                logger.logp(Level.FINE, getClass().getName(), "receiveMessage", msg + "\n" + message);
             }
         }
         
@@ -303,7 +300,7 @@ public class MulticastDNSQuerier implements Querier
             
             if (!unicast && !multicast)
             {
-                System.err.println("Could not execute query, no Unicast Resolvers or Multicast Queriers were available\n" + query);
+                logger.logp(Level.SEVERE, getClass().getName(), "start", "Could not execute query, no Unicast Resolvers or Multicast Queriers were available\n" + query);
             }
             return this;
         }
@@ -463,8 +460,7 @@ public class MulticastDNSQuerier implements Querier
                 ipv4_exception = e;
                 if (mdnsVerbose)
                 {
-                    System.err.println("Error constructing IPv4 mDNS Responder - " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, "Error constructing IPv4 mDNS Responder - " + e.getMessage(), e);
                 }
             }
         }
@@ -481,8 +477,7 @@ public class MulticastDNSQuerier implements Querier
                 ipv6_exception = e;
                 if (mdnsVerbose)
                 {
-                    System.err.println("Error constructing IPv6 mDNS Responder - " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, "Error constructing IPv6 mDNS Responder - " + e.getMessage(), e);
                 }
             }
         }
@@ -570,8 +565,7 @@ public class MulticastDNSQuerier implements Querier
             {
                 if (mdnsVerbose)
                 {
-                    System.err.println("Error closing Responder: " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, "Error closing Responder: " + e.getMessage(), e);
                 }
             }
         }

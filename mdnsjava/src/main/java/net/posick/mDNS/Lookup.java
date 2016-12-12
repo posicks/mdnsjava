@@ -113,7 +113,7 @@ public class Lookup extends MulticastDNSLookupBase
         public void handleException(Object id, Exception e);
         
         
-        public void receiveRecord(Object id, Record r);
+        public void receiveRecord(Object id, Record record);
     }
 
     
@@ -156,6 +156,20 @@ public class Lookup extends MulticastDNSLookupBase
     throws IOException
     {
         super(names);
+    }
+    
+    
+    public Lookup(final String name, final int type)
+    throws IOException
+    {
+        super(name, type);
+    }
+    
+    
+    public Lookup(final String name, final int type, final int dclass)
+    throws IOException
+    {
+        super(name, type, dclass);
     }
     
     
@@ -287,10 +301,10 @@ public class Lookup extends MulticastDNSLookupBase
     }
     
     
-    public void lookupRecordsAsync(final RecordListener listener)
+    public Object[] lookupRecordsAsync(final RecordListener listener)
     throws IOException
     {
-        lookupRecordsAsync(new ResolverListener()
+        return lookupRecordsAsync(new ResolverListener()
         {
             public void handleException(final Object id, final Exception e)
             {
@@ -310,13 +324,15 @@ public class Lookup extends MulticastDNSLookupBase
     }
     
     
-    public void lookupRecordsAsync(final ResolverListener listener)
+    public Object[] lookupRecordsAsync(final ResolverListener listener)
     throws IOException
     {
+        List<Object> results = new ArrayList<Object>(queries.length);
         for (Message query : queries)
         {
             getQuerier().sendAsync(query, listener);
         }
+        return results.toArray();
     }
     
     

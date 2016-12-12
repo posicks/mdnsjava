@@ -3,6 +3,8 @@ package net.posick.mDNS.utils;
 import java.io.Closeable;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * This class contains miscellaneous utility methods
@@ -11,6 +13,9 @@ import java.io.StringWriter;
  */
 public class Misc
 {
+    public static final Logger globalLogger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    
+    
     public static final void close(Closeable closable)
     {
         if (closable != null)
@@ -119,5 +124,31 @@ public class Misc
         }
         
         return output.toString();
+    }
+    
+    
+    public static Level setGlobalLogLevel(Level level)
+    {
+        Level result = globalLogger.getLevel();
+        globalLogger.setLevel(Level.FINE);
+        return result;
+    }
+    
+    
+    public static final Logger getLogger(Class<?> cls, boolean verbose)
+    {
+        return getLogger(cls.getName(), verbose);
+    }    
+    
+    
+    public static final Logger getLogger(String name, boolean verbose)
+    {
+        Logger logger = Logger.getLogger(name);
+        logger.setParent(globalLogger);
+        if (verbose)
+        {
+            logger.setLevel(Level.FINEST);
+        }
+        return logger;
     }
 }

@@ -5,14 +5,20 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.Options;
 
 import net.posick.mDNS.utils.ExecutionTimer;
 import net.posick.mDNS.utils.Executors;
+import net.posick.mDNS.utils.Misc;
 
 public abstract class NetworkProcessor implements Runnable, Closeable
 {
+    protected static final Logger logger = Misc.getLogger(NetworkProcessor.class.getName(), Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose"));
+    
+    
     protected static class PacketRunner implements Runnable
     {
         private static long lastPacket = -1;
@@ -35,10 +41,7 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         
         public void run()
         {
-            if (verboseLogging)
-            {
-                System.out.println("Running " + packets.length + " on a single thread");
-            }
+            logger.logp(Level.FINE, getClass().getName(), "run", "Running " + packets.length + " on a single thread");
             lastPacket = System.currentTimeMillis();
             
             PacketListener dispatcher = this.dispatcher;
@@ -46,22 +49,21 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             {
                 try
                 {
-                    if (verboseLogging)
+                    if (logger.isLoggable(Level.FINE))
                     {
                         double took = packet.timer.took(TimeUnit.MILLISECONDS);
-                        System.err.println("NetworkProcessor took " + took + " milliseconds to start packet " + packet.id + ".");
+                        logger.logp(Level.FINE, getClass().getName(), "run", "NetworkProcessor took " + took + " milliseconds to start packet " + packet.id + ".");
                         ExecutionTimer._start();
-                        System.err.println("-----> Dispatching Packet " + packet.id + " <-----");
+                        logger.logp(Level.FINE, getClass().getName(), "run", "-----> Dispatching Packet " + packet.id + " <-----");
                     }
                     dispatcher.packetReceived(packet);
-                    if (verboseLogging)
+                    if (logger.isLoggable(Level.FINE))
                     {
-                        System.err.println("Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " milliseconds to be dispatched to Listeners.");
+                        logger.logp(Level.FINE, getClass().getName(), "run", "Packet " + packet.id + " took " + ExecutionTimer._took(TimeUnit.MILLISECONDS) + " milliseconds to be dispatched to Listeners.");
                     }
                 } catch (Throwable e)
                 {
-                    System.err.println("Error dispatching data packet - " + e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, "Error dispatching data packet - " + e.getMessage(), e);
                 }
             }
         }
@@ -75,8 +77,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public static final int MAX_QUEUE_THRESHOLD = 10;
     
     public static final int PACKET_MONITOR_NO_PACKET_RECEIVED_TIMEOUT = 100000;
-    
-    protected static boolean verboseLogging = false;
     
     protected Executors executors = Executors.newInstance();
     
@@ -102,15 +102,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
     public NetworkProcessor(final InetAddress ifaceAddress, final InetAddress address, final int port, final PacketListener listener)
     throws IOException
     {
-        /*
-         * Remove When done developing and testing
-        Options.set("mdns_cache_verbose");
-        Options.set("cache_verbose");
-        Options.set("mdns_network_verbose");
-        Options.set("network_verbose");
-        Options.set("mdns_network_thread_monitor");
-         */
-        verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("verbose");
         threadMonitoring = Options.check("mdns_network_thread_monitor");
         
         setInterfaceAddress(ifaceAddress);
@@ -125,13 +116,6 @@ public abstract class NetworkProcessor implements Runnable, Closeable
         ipv6 = address.getAddress().length > 4;
         
         this.listener = listener;
-        executors.scheduleAtFixedRate(new Runnable()
-        {
-            public void run()
-            {
-                verboseLogging = Options.check("mdns_network_verbose") || Options.check("network_verbose") || Options.check("mdns_verbose") || Options.check("verbose");
-            }
-        }, 1, 1, TimeUnit.MINUTES);
     }
     
     
@@ -232,12 +216,12 @@ public abstract class NetworkProcessor implements Runnable, Closeable
                             {
                                 msg += " - NetworkProcessorExecutor has shutdown!";
                             }
-                            System.err.println(msg);
+                            logger.logp(Level.WARNING, getClass().getPackage().getName() + ".ThreadMonitor", "run", msg);
                         }
                         
                         if (!operational)
                         {
-                            System.err.println("NetworkProcessor is NOT operational, closing it!");
+                            logger.logp(Level.WARNING, getClass().getPackage().getName() + ".ThreadMonitor", "run", "NetworkProcessor is NOT operational, closing it!");
                             try
                             {
                                 close();
@@ -251,14 +235,11 @@ public abstract class NetworkProcessor implements Runnable, Closeable
             }, 1, TimeUnit.SECONDS);
         }
 
-        if (threadMonitoring)
-        {
-            Thread t = new Thread(this);
-            t.setName("NetworkProcessor IO Read Thread");
-            t.setPriority(Executors.DEFAULT_NETWORK_THREAD_PRIORITY);
-            t.setDaemon(true);
-            t.start();
-            networkReadThread = t;
-        }
+        Thread t = new Thread(this);
+        t.setName("NetworkProcessor IO Read Thread");
+        t.setPriority(Executors.DEFAULT_NETWORK_THREAD_PRIORITY);
+        t.setDaemon(true);
+        t.start();
+        networkReadThread = t;
     }
 }

@@ -1,6 +1,7 @@
 package net.posick.mDNS;
 
 import java.io.Closeable;
+import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.AccessibleObject;
 import java.lang.reflect.Field;
@@ -12,6 +13,8 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Stack;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.Cache;
 import org.xbill.DNS.Credibility;
@@ -31,6 +34,7 @@ import org.xbill.DNS.SetResponse;
 import org.xbill.DNS.Type;
 
 import net.posick.mDNS.utils.Executors;
+import net.posick.mDNS.utils.Misc;
 
 /**
  * A cache of mDNS records and responses. The cache obeys TTLs, so items are
@@ -50,6 +54,8 @@ import net.posick.mDNS.utils.Executors;
 "rawtypes"})
 public class MulticastDNSCache extends Cache implements Closeable
 {
+    protected static final Logger logger = Misc.getLogger(MulticastDNSCache.class.getName(), Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose"));
+    
     /**
      * The CacheCheck interface allows a client to monitor the Cache data
      * and implement a cache refresh mechanism, such as what is required for
@@ -257,11 +263,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                     cacheMonitor.begin();
                 } catch (Exception e)
                 {
-                    if (mdnsVerbose)
-                    {
-                        System.err.println(e.getMessage());
-                        e.printStackTrace(System.err);
-                    }
+                    logger.log(Level.WARNING, e.getMessage(), e);
                 }
                 
                 Object[] sets;
@@ -294,11 +296,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                         }
                     } catch (Exception e)
                     {
-                        if (mdnsVerbose)
-                        {
-                            System.err.println(e.getMessage());
-                            e.printStackTrace(System.err);
-                        }
+                        logger.log(Level.WARNING, e.getMessage(), e);
                     }
                 }
                 
@@ -307,16 +305,11 @@ public class MulticastDNSCache extends Cache implements Closeable
                     cacheMonitor.end();
                 } catch (Exception e)
                 {
-                    if (mdnsVerbose)
-                    {
-                        System.err.println(e.getMessage());
-                        e.printStackTrace(System.err);
-                    }
+                    logger.log(Level.WARNING, e.getMessage(), e);
                 }
             } catch (Throwable e)
             {
-                System.err.println(e.getMessage());
-                e.printStackTrace(System.err);
+                logger.log(Level.WARNING, e.getMessage(), e);
             }
         }
         
@@ -352,17 +345,18 @@ public class MulticastDNSCache extends Cache implements Closeable
                     }
                 } else
                 {
-                    System.err.println("Element is an unexpected type \"" + (element.getElement() != null ? element.getElement().getClass().getName() : "null") + "\"");
+                    logger.logp(Level.INFO, getClass().getName(), "processElement", "Element is an unexpected type \"" + (element.getElement() != null ? element.getElement().getClass().getName() : "null") + "\"");
                 }
             } catch (Exception e)
             {
-                System.err.println(e.getMessage());
-                e.printStackTrace(System.err);
+                logger.log(Level.WARNING, e.getMessage(), e);
             }
         }
     }
     
     protected final static MulticastDNSCache DEFAULT_MDNS_CACHE;
+    
+    public final static String MDNS_CACHE_FILENAME = MulticastDNSMulticastOnlyQuerier.class.getSimpleName() + ".cache";
 
     static
     {
@@ -371,25 +365,27 @@ public class MulticastDNSCache extends Cache implements Closeable
         {
             try
             {
-                temp = new MulticastDNSCache(MulticastDNSMulticastOnlyQuerier.class.getSimpleName());
+                String filename = MDNS_CACHE_FILENAME;
+                File file = new File(filename);
+                if (file.exists() && file.canRead())
+                {
+                    temp = new MulticastDNSCache(filename);
+                } else
+                {
+                    temp = new MulticastDNSCache();
+                }
             } catch (IOException e)
             {
                 temp = new MulticastDNSCache();
                 
-                if (Options.check("mdns_verbose") || Options.check("verbose"))
-                {
-                    System.err.println("Error loading default cache values.");
-                    e.printStackTrace(System.err);
-                }
+                logger.log(Level.WARNING, "Error loading default cache values - " + e.getMessage(), e);
             }
         } catch (NoSuchFieldException e)
         {
-            System.err.println("Unrecoverable Error: The base " + Cache.class + " class does not implement required fields!");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Unrecoverable Error: The base " + Cache.class + " class does not implement required fields - " + e.getMessage(), e);
         } catch (NoSuchMethodException e)
         {
-            System.err.println("Unrecoverable Error: The base " + Cache.class + " class does not implement required methods!");
-            e.printStackTrace();
+            logger.log(Level.WARNING, "Unrecoverable Error: The base " + Cache.class + " class does not implement required methods - " + e.getMessage(), e);
         }
         
         DEFAULT_MDNS_CACHE = temp;
@@ -404,8 +400,6 @@ public class MulticastDNSCache extends Cache implements Closeable
     private Method findElement = null;
     
     private Method removeElement = null;
-    
-    private boolean mdnsVerbose;
     
     private Executors executors = Executors.newInstance();
     
@@ -669,11 +663,7 @@ public class MulticastDNSCache extends Cache implements Closeable
                                                      new Integer(type)});
         } catch (Exception e)
         {
-            System.err.println(e.getMessage());
-            if (mdnsVerbose)
-            {
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.WARNING, e.getMessage(), e);
         }
     }
     
@@ -758,8 +748,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             super.finalize();
         } catch (Throwable t)
         {
-            System.err.println(t.getMessage());
-            t.printStackTrace(System.err);
+            logger.log(Level.WARNING,  t.getMessage(), t);
         }
     }
     
@@ -778,8 +767,6 @@ public class MulticastDNSCache extends Cache implements Closeable
     protected void populateReflectedFields()
     throws NoSuchFieldException, NoSuchMethodException
     {
-        mdnsVerbose = Options.check("mdns_verbose") || Options.check("dns_verbose") || Options.check("verbose");
-        
         executors.scheduleAtFixedRate(new MonitorTask(), 1, 1, TimeUnit.SECONDS);
         
         Class clazz = getClass().getSuperclass();
@@ -793,15 +780,11 @@ public class MulticastDNSCache extends Cache implements Closeable
             dataCopy = (LinkedHashMap) dataField.get(this);
         } catch (NoSuchFieldException e)
         {
-            System.err.println(e.getMessage());
+            logger.log(Level.WARNING, e.getMessage(), e);
             throw e;
         } catch (Exception e)
         {
-            if (mdnsVerbose)
-            {
-                System.err.println(e.getMessage());
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.WARNING, e.getMessage(), e);
         }
         
         try
@@ -816,15 +799,11 @@ public class MulticastDNSCache extends Cache implements Closeable
                                                                    removeElement}, true);
         } catch (NoSuchMethodException e)
         {
-            System.err.println(e.getMessage());
+            logger.log(Level.WARNING, e.getMessage(), e);
             throw e;
         } catch (Exception e)
         {
-            if (mdnsVerbose)
-            {
-                System.err.println(e.getMessage());
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.WARNING, e.getMessage(), e);
         }
     }
     
@@ -842,11 +821,7 @@ public class MulticastDNSCache extends Cache implements Closeable
             return o == null ? (ElementHelper) null : new ElementHelper(this, o);
         } catch (Exception e)
         {
-            System.err.println(e.getMessage());
-            if (mdnsVerbose)
-            {
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.WARNING, e.getMessage(), e);
             return null;
         }
     }

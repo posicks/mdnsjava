@@ -9,6 +9,8 @@ import java.lang.reflect.Proxy;
 import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.Stack;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * The ListenerSupport class implements a performant, thread safe, listener subsystem
@@ -22,6 +24,8 @@ import java.util.Stack;
 @SuppressWarnings("unchecked")
 public class ListenerProcessor<T> implements Closeable
 {
+    private static final Logger logger = Logger.getLogger(ListenerProcessor.class.getName());
+    
     public static class StopDispatchException extends Exception
     {
         private static final long serialVersionUID = 201401211841L;
@@ -56,13 +60,11 @@ public class ListenerProcessor<T> implements Closeable
                     method.invoke(listener, args);
                 } catch (IllegalArgumentException e)
                 {
-                    System.err.println(e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, e.getMessage(), e);
                     throw e;
                 } catch (IllegalAccessException e)
                 {
-                    System.err.println(e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, e.getMessage(), e);
                     throw e;
                 } catch (InvocationTargetException e)
                 {
@@ -71,14 +73,12 @@ public class ListenerProcessor<T> implements Closeable
                         break;
                     } else
                     {
-                        System.err.println(e.getTargetException().getMessage());
-                        e.getTargetException().printStackTrace(System.err);
+                        logger.log(Level.WARNING, e.getTargetException().getMessage(), e.getTargetException());
                         throw e.getTargetException();
                     }
                 } catch (Exception e)
                 {
-                    System.err.println(e.getMessage());
-                    e.printStackTrace(System.err);
+                    logger.log(Level.WARNING, e.getMessage(), e);
                     throw e;
                 }
             }

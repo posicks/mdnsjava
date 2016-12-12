@@ -3,6 +3,7 @@ package net.posick.mDNS.net;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.nio.channels.CancelledKeyException;
 import java.nio.channels.SelectionKey;
@@ -12,8 +13,7 @@ import java.nio.channels.SocketChannel;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
-
-import org.xbill.DNS.Options;
+import java.util.logging.Level;
 
 import net.posick.mDNS.Querier;
 
@@ -73,6 +73,8 @@ public class UnicastProcessor extends NetworkProcessor
     
     public void run()
     {
+        byte[] data = new byte[mtu];
+
         try
         {
             while (!exit)
@@ -133,10 +135,10 @@ public class UnicastProcessor extends NetworkProcessor
                                         throw new IOException("Read on closed key");
                                     } else
                                     {
-                                        // readBuffer.flip();
-                                        
-                                        System.out.println("Received message from " + channel.socket().getRemoteSocketAddress());
-                                        // threadPool.execute(new PacketDispatchRunner(new Packet(datagram), listeners));
+                                        logger.logp(Level.FINE, getClass().getName(), "run", "Received message from " + channel.socket().getRemoteSocketAddress());
+                                        Socket socket = channel.socket();
+                                        int length = readBuffer.limit() - readBuffer.position() - readBuffer.remaining();
+                                        executors.executeNetworkTask(new PacketRunner(listener, new Packet(socket.getLocalAddress(), socket.getPort(), data, 0, length)));
                                     }
                                 }
                                 
@@ -156,39 +158,15 @@ public class UnicastProcessor extends NetworkProcessor
                         }
                     }
                 }
-                
-                /*
-                 * final SocketChannel channel = server.accept(); if (channel !=
-                 * null) { threadPool.execute(new UnicastRunner(channel) {
-                 * 
-                 * @Override public void run() { try { ByteBuffer buffer =
-                 * ByteBuffer.allocateDirect(mtu); int bytesRead =
-                 * channel.read(buffer); if (bytesRead > 0) { } } catch
-                 * (IOException e) { if (!(!server.isOpen() && exit)) { if
-                 * (Options.check("mdns_verbose")) {
-                 * System.err.println("Error receiving data from \"" + address +
-                 * "\" - " + e.getMessage()); e.printStackTrace(System.err); } }
-                 * } } });
-                 */
             }
         } catch (SecurityException e)
         {
-            if (Options.check("mdns_verbose"))
-            {
-                System.err.println("Security issue receiving data from \"" + address + "\" - " + e.getMessage());
-                e.printStackTrace(System.err);
-            }
+            logger.log(Level.WARNING, "Security issue receiving data from \"" + address + "\" - " + e.getMessage(), e);
         } catch (Exception e)
         {
-            System.err.println("!!!!! Error receiving data from \"" + address + "\" - " + e.getMessage() + " !!!!!");
-            e.printStackTrace(System.err);
-            if (server.isOpen() && !exit)
+            if (server.isOpen() && !exit && logger.isLoggable(Level.FINE))
             {
-                if (Options.check("mdns_verbose"))
-                {
-                    System.err.println("Error receiving data from \"" + address + "\" - " + e.getMessage());
-                    e.printStackTrace(System.err);
-                }
+                logger.log(Level.WARNING, "Error receiving data from \"" + address + "\" - " + e.getMessage(), e);
             }
         }
     }

@@ -10,10 +10,17 @@ import java.util.Arrays;
 import java.util.Enumeration;
 import java.util.Iterator;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+
+import net.posick.mDNS.utils.Misc;
 
 @SuppressWarnings({"rawtypes", "unchecked"})
 public class MulticastDNSUtils
 {
+    private static final Logger logger = Misc.getLogger(MulticastDNSUtils.class, Options.check("mdns_verbose"));
+
+    
     public static final Record[] EMPTY_RECORDS = new Record[0];
     
     
@@ -307,10 +314,7 @@ public class MulticastDNSUtils
                 }
             } catch (Exception e)
             {
-                if (Options.check("mdns_verbose"))
-                {
-                    System.out.println("No further records for " +  record.getClass().getSimpleName() + ": " + record);
-                }
+                logger.logp(Level.FINE, MulticastDNSUtils.class.getName(), "getTargetFromRecord", "No target specified in record " +  record.getClass().getSimpleName() + ": " + record);
             }
         }
         

@@ -33,8 +33,6 @@ public class ServiceInstance implements Serializable
     
     private int port;
     
-    private long ttl;
-    
     private final Map textAttributes = new LinkedHashMap();
     
     private String niceText;
@@ -69,7 +67,6 @@ public class ServiceInstance implements Serializable
         this.priority = priority;
         this.weight = weight;
         this.port = port;
-        ttl = ttl <= 0 ? Constants.DEFAULT_SRV_TTL : ttl;
         
         if (addresses != null)
         {
@@ -356,7 +353,7 @@ public class ServiceInstance implements Serializable
      * Accepts an Object that is either a String, TXTRecord, or an objects who's string
      * representation is a string of name/value pairs, in the format
      * 
-     * [WS] NAME [WS] "=" [WS] VALUE WS *([WS] NAME [WS] "=" [WS] VALUE [WS]) (NULL | NEWLINE)
+     * [WS] NAME [WS] "=" [WS] VALUE [WS] *(WS [WS] NAME [WS] "=" [WS] VALUE [WS]) (NULL | NEWLINE)
      * 
      * @param rawText
      * @return

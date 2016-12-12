@@ -209,7 +209,7 @@ DNS-based Service Discovery is an efficient service discovery protocol developed
 
 ## <a name="st2071"></a> SMPTE ST2071 Media & Device Control over IP
 
-This project was originally created for the development of a proof of concept application for the Society of Motion Picture and Television Engineers (SMPTE) suite of standards on Media & Device Control over IP networks, [SMPTE ST2071](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=7290627&filter=AND(p_Publication_Number:7290625)). The SMPTE ST2071 suite of standards defines an open standard for the representation of devices and services within an Internet of Things (IoT) and defines extensions to the DNS-SD protocol that allows for the service discovery DNS infrastructure to be seperate from the DNS infrastructure used for name resolution.
+This project was originally created for the development of a proof of concept application for the Society of Motion Picture and Television Engineers (SMPTE) suite of standards on Media & Device Control over IP networks, [SMPTE ST2071](http://ieeexplore.ieee.org/xpl/articleDetails.jsp?arnumber=7290627&filter=AND(p_Publication_Number:7290625)). The SMPTE ST2071 suite of standards defines an open standard for the representation of devices and services within an Internet of Things (IoT) and defines extensions to the DNS-SD protocol that allows for the service discovery DNS infrastructure to be separate from the DNS infrastructure used for name resolution.
 
 ### <a name="st2071_register_capabilty"></a> Registering and Unregistering ST2071 Capabilities
 

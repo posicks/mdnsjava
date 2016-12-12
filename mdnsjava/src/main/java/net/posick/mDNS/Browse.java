@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.DClass;
 import org.xbill.DNS.Flags;
@@ -22,6 +24,8 @@ import net.posick.mDNS.utils.ListenerProcessor;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
+    private static final Logger logger = Logger.getLogger(Browse.class.getName());
+    
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
      * Refer to the mDNS specification [RFC 6762]
@@ -141,10 +145,10 @@ public class Browse extends MulticastDNSLookupBase
         
         public void run()
         {
-            if (mdnsVerbose)
+            if (logger.isLoggable(Level.FINE))
             {
                 long now = System.currentTimeMillis();
-                System.out.println("Broadcasting Query for Browse." + (lastBroadcast <= 0 ? "" : " Last broadcast was " + ((double) ((double) (now - lastBroadcast) / (double) 1000)) + " seconds ago.") );
+                logger.logp(Level.FINE, getClass().getName(), "run", "Broadcasting Query for Browse." + (lastBroadcast <= 0 ? "" : " Last broadcast was " + ((double) ((double) (now - lastBroadcast) / (double) 1000)) + " seconds ago."));
                 lastBroadcast = System.currentTimeMillis();
             }
             
@@ -153,9 +157,9 @@ public class Browse extends MulticastDNSLookupBase
                 broadcastDelay = broadcastDelay > 0 ? Math.min(broadcastDelay * 2, 3600) : 1;
                 executors.schedule(this, broadcastDelay, TimeUnit.SECONDS);
                 
-                if (mdnsVerbose)
+                if (logger.isLoggable(Level.FINE))
                 {
-                    System.out.println("Broadcasting Query for Browse Operation.");
+                    logger.logp(Level.FINE, getClass().getName(), "run", "Broadcasting Query for Browse Operation.");
                 }
                 
                 for (Message query : queries)
@@ -164,8 +168,7 @@ public class Browse extends MulticastDNSLookupBase
                 }
             } catch (Exception e)
             {
-                System.err.println("Error broadcasting query for browse - " + e.getMessage());
-                e.printStackTrace(System.err);
+                logger.log(Level.WARNING, "Error broadcasting query for browse - " + e.getMessage(), e);
             }
         }
 
@@ -249,18 +252,18 @@ public class Browse extends MulticastDNSLookupBase
     {
         if (listener == null)
         {
-            if (mdnsVerbose)
+            if (logger.isLoggable(Level.FINE))
             {
-                System.err.println("Error sending asynchronous query, listener is null!");
+                logger.logp(Level.FINE, getClass().getName(), "start", "Error sending asynchronous query, listener is null!");
             }
             throw new NullPointerException("Error sending asynchronous query, listener is null!");
         }
         
         if (queries == null || queries.length == 0)
         {
-            if (mdnsVerbose)
+            if (logger.isLoggable(Level.FINE))
             {
-                System.err.println("Error sending asynchronous query, No queries specified!");
+                logger.logp(Level.FINE, getClass().getName(), "start", "Error sending asynchronous query, No queries specified!");
             }
             throw new NullPointerException("Error sending asynchronous query, No queries specified!");
         }
