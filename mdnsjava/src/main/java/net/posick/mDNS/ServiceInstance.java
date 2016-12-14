@@ -2,6 +2,7 @@ package net.posick.mDNS;
 
 import java.io.Serializable;
 import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -40,16 +41,10 @@ public class ServiceInstance implements Serializable
     private String[] text;
     
     
-    public ServiceInstance(final ServiceName name)
+    public ServiceInstance(final ServiceName name, final int priority, final int weight, final int port, Name host, String... txtRecords)
+    throws UnknownHostException
     {
-        this.name = name;
-    }
-    
-    
-    public ServiceInstance(final ServiceName name, Name host)
-    {
-        this.name = name;
-        this.host = host;
+        this(name, priority, weight, port, host, new InetAddress[] {InetAddress.getLocalHost()}, txtRecords);
     }
     
     

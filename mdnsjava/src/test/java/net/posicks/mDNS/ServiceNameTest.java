@@ -1,13 +1,16 @@
 package net.posicks.mDNS;
 
+import static org.junit.Assert.*;
+
 import java.util.concurrent.TimeUnit;
 
+import org.junit.After;
+import org.junit.Before;
 import org.junit.FixMethodOrder;
 import org.junit.Test;
 import org.junit.runners.MethodSorters;
 import org.xbill.DNS.TextParseException;
 
-import junit.framework.TestCase;
 import net.posick.mDNS.ServiceName;
 import net.posick.mDNS.utils.ExecutionTimer;
 import net.posick.mDNS.utils.Misc;
@@ -18,7 +21,7 @@ import net.posick.mDNS.utils.Misc;
  * @author Steve Posick
  */
 @FixMethodOrder(MethodSorters.NAME_ASCENDING)
-public class ServiceNameTest extends TestCase
+public class ServiceNameTest
 {
     private static final String DOMAINS[] = 
     {
@@ -27,7 +30,7 @@ public class ServiceNameTest extends TestCase
         "local."
     };
     
-    private static final String ROOT_SERVICE_NAMES[] = 
+    private static final String RFC_6763_TYPES[] = 
     {
         "_ftp._tcp",
         "_ftp._udp",
@@ -59,17 +62,19 @@ public class ServiceNameTest extends TestCase
         "_syncmate._tcp"
     };
     
-    private static final String RFC_6763_SUB_SERVICE_NAMES[] = 
+    private static final String RFC_6763_SUB_TYPES[] = 
     {
-        "_printer._sub",
-        "_test._sub",
-        "_http._sub",
-        "_xml._sub",
-        "_org.smpte.device.Device_v1.0._sub",       // SMPTE ST2071 Device SRV Name
-        "_org.smpte.service.Service_v1.0._sub"      // SMPTE ST2071 Service SRV Name
+        "_printer",
+        "_test",
+        "_http",
+        "_xml",
+        "_org.smpte.device:Device_v1.0",           // SMPTE ST2071 Device SRV Name
+        "_org.smpte.service:Service_v1.0",         // SMPTE ST2071 Service SRV Name
+        "_org.smpte.device:Device_v1.0#Fragment",  // SMPTE ST2071 Device SRV Name
+        "_org.smpte.service:Service_v1.0#Fragment" // SMPTE ST2071 Service SRV Name
     };
     
-    private static final String RFC_2782_SUB_SERVICE_NAMES[] = 
+    private static final String RFC_2782_TYPES[] = 
     {
         "_printer",
         "_ipp._printer",
@@ -78,13 +83,12 @@ public class ServiceNameTest extends TestCase
         "_test"
     };
     
-    private static final String INSTANCE_NAMES[] = 
+    private static final String INSTANCES[] = 
     {
         "steveposick",
         "steve-posick",
         "steve posick",
         "steve.posick",
-        "steve.posick._steve",
         "Steve's Test",
         "Steve's Test Name",
         "Steve's_Test_Name",
@@ -92,51 +96,45 @@ public class ServiceNameTest extends TestCase
         "*"
     };
 
-    private static final int PERFORMANCE_ITERATIONS = 100;
+    private static final int PERFORMANCE_ITERATIONS = 1000;
     
     
-    /**
-     * @param name
-     */
-    public ServiceNameTest(String name)
+    @Before
+    public void setUp()
+    throws Exception
     {
-        super(name);
     }
     
     
-    /* (non-Javadoc)
-     * @see junit.framework.TestCase#setUp()
-     */
-    protected void setUp()
+    @After
+    public void tearDown()
     throws Exception
     {
-        super.setUp();
-    }
-    
-    
-    /* (non-Javadoc)
-     * @see junit.framework.TestCase#tearDown()
-     */
-    protected void tearDown()
-    throws Exception
-    {
-        super.tearDown();
     }
     
     
     @Test
-    public void test1ServiceNames()
+    public void Test_RFC_2782_ServiceNames()
     {
         ServiceName name;
         
         for (String domain : DOMAINS)
         {
-            for (String root : ROOT_SERVICE_NAMES)
+            for (String type : RFC_2782_TYPES)
             {
-                String fullName = root + "." + domain;
+                String fullName = type + "." + domain;
                 try
                 {
                     name = new ServiceName(fullName);
+                    assertEquals(null, Misc.unescape(name.getInstance()));
+                    assertEquals(null, Misc.unescape(name.getFullSubType()));
+                    assertEquals(null, Misc.unescape(name.getSubType()));
+                    assertEquals(type, Misc.unescape(name.getType()));
+                    assertEquals(type, Misc.unescape(name.getFullType()));
+                    assertEquals(type, Misc.unescape(name.getApplication()));
+                    assertEquals(null, Misc.unescape(name.getProtocol()));
+                    assertEquals(domain, Misc.unescape(name.getDomain()));
+                    assertEquals(type + "." + domain, Misc.unescape(name.getServiceTypeName().toString()));
                     assertEquals(fullName, Misc.unescape(name.toString()));
                 } catch (TextParseException e)
                 {
@@ -148,21 +146,62 @@ public class ServiceNameTest extends TestCase
     
     
     @Test
-    public void test2SubServiceNames()
+    public void Test_RFC_6763_Type_ServiceNames()
     {
         ServiceName name;
         
         for (String domain : DOMAINS)
         {
-            for (String root : ROOT_SERVICE_NAMES)
+            for (String type : RFC_6763_TYPES)
             {
-                for (String sub : RFC_6763_SUB_SERVICE_NAMES)
+                String fullName = type + "." + domain;
+                try
                 {
-                    String subServiceName = sub + "." + root + "." + domain;
+                    name = new ServiceName(fullName);
+                    assertEquals(null, Misc.unescape(name.getInstance()));
+                    assertEquals(null, Misc.unescape(name.getFullSubType()));
+                    assertEquals(null, Misc.unescape(name.getSubType()));
+                    assertEquals(type, Misc.unescape(name.getType()));
+                    assertEquals(type, Misc.unescape(name.getFullType()));
+                    assertEquals(type.substring(0, type.indexOf('.')), Misc.unescape(name.getApplication()));
+                    assertEquals(type.substring(type.indexOf('.') + 1), Misc.unescape(name.getProtocol()));
+                    assertEquals(domain, Misc.unescape(name.getDomain()));
+                    assertEquals(type + "." + domain, Misc.unescape(name.getServiceTypeName().toString()));
+                    assertEquals(fullName, Misc.unescape(name.toString()));
+                } catch (TextParseException e)
+                {
+                    fail(Misc.throwableToString(e));
+                }
+            }
+        }
+    }
+    
+    
+    @Test
+    public void Test_RFC_6763_Type_InstanceNames()
+    {
+        ServiceName name;
+        
+        for (String domain : DOMAINS)
+        {
+            for (String type : RFC_6763_TYPES)
+            {
+                for (String instance : INSTANCES)
+                {
+                    String fullName =  instance + "." + type + "." + domain;
                     try
                     {
-                        name = new ServiceName(subServiceName);
-                        assertEquals(subServiceName, Misc.unescape(name.toString()));
+                        name = new ServiceName(fullName);
+                        assertEquals(instance, Misc.unescape(name.getInstance()));
+                        assertEquals(null, Misc.unescape(name.getFullSubType()));
+                        assertEquals(null, Misc.unescape(name.getSubType()));
+                        assertEquals(type, Misc.unescape(name.getType()));
+                        assertEquals(type, Misc.unescape(name.getFullType()));
+                        assertEquals(type.substring(0, type.indexOf('.')), Misc.unescape(name.getApplication()));
+                        assertEquals(type.substring(type.indexOf('.') + 1), Misc.unescape(name.getProtocol()));
+                        assertEquals(domain, Misc.unescape(name.getDomain()));
+                        assertEquals(type + "." + domain, Misc.unescape(name.getServiceTypeName().toString()));
+                        assertEquals(fullName, Misc.unescape(name.toString()));
                     } catch (TextParseException e)
                     {
                         fail(Misc.throwableToString(e));
@@ -174,21 +213,31 @@ public class ServiceNameTest extends TestCase
     
     
     @Test
-    public void test3ServiceInstanceNames()
+    public void Test_RFC_6763_SubType_ServiceNames()
     {
         ServiceName name;
         
         for (String domain : DOMAINS)
         {
-            for (String root : ROOT_SERVICE_NAMES)
+            for (String type : RFC_6763_TYPES)
             {
-                for (String instance : INSTANCE_NAMES)
+                for (String subType : RFC_6763_SUB_TYPES)
                 {
-                    String instanceName = instance + "." + root + "." + domain;
+                    String fullSubType = subType + "._sub." + type;
+                    String fullName =  fullSubType + "." + domain;
                     try
                     {
-                        name = new ServiceName(instanceName);
-                        assertEquals(instanceName, Misc.unescape(name.toString()));
+                        name = new ServiceName(fullName);
+                        assertEquals(null, Misc.unescape(name.getInstance()));
+                        assertEquals(subType + "._sub", Misc.unescape(name.getFullSubType()));
+                        assertEquals(subType, Misc.unescape(name.getSubType()));
+                        assertEquals(type, Misc.unescape(name.getType()));
+                        assertEquals(fullSubType, Misc.unescape(name.getFullType()));
+                        assertEquals(type.substring(0, type.indexOf('.')), Misc.unescape(name.getApplication()));
+                        assertEquals(type.substring(type.indexOf('.') + 1), Misc.unescape(name.getProtocol()));
+                        assertEquals(domain, Misc.unescape(name.getDomain()));
+                        assertEquals(type + "." + domain, Misc.unescape(name.getServiceTypeName().toString()));
+                        assertEquals(fullName, Misc.unescape(name.toString()));
                     } catch (TextParseException e)
                     {
                         fail(Misc.throwableToString(e));
@@ -200,24 +249,33 @@ public class ServiceNameTest extends TestCase
     
     
     @Test
-    public void test4RFC6763SubServiceInstanceNames()
+    public void Test_RFC_6763_SubType_InstanceNames()
     {
         ServiceName name;
         
         for (String domain : DOMAINS)
         {
-            for (String root : ROOT_SERVICE_NAMES)
+            for (String type : RFC_6763_TYPES)
             {
-                for (String sub : RFC_6763_SUB_SERVICE_NAMES)
+                for (String subType : RFC_6763_SUB_TYPES)
                 {
-                    String subServiceName = sub + "." + root + "." + domain;
-                    for (String instance : INSTANCE_NAMES)
+                    for (String instance : INSTANCES)
                     {
-                        String instanceName = instance + "." + subServiceName;
+                        String fullSubType = subType + "._sub." + type;
+                        String fullName =  instance + "." + fullSubType + "." + domain;
                         try
                         {
-                            name = new ServiceName(instanceName);
-                            assertEquals(instanceName, Misc.unescape(name.toString()));
+                            name = new ServiceName(fullName);
+                            assertEquals(instance, Misc.unescape(name.getInstance()));
+                            assertEquals(subType + "._sub", Misc.unescape(name.getFullSubType()));
+                            assertEquals(subType, Misc.unescape(name.getSubType()));
+                            assertEquals(type, Misc.unescape(name.getType()));
+                            assertEquals(fullSubType, Misc.unescape(name.getFullType()));
+                            assertEquals(type.substring(0, type.indexOf('.')), Misc.unescape(name.getApplication()));
+                            assertEquals(type.substring(type.indexOf('.') + 1), Misc.unescape(name.getProtocol()));
+                            assertEquals(domain, Misc.unescape(name.getDomain()));
+                            assertEquals(type + "." + domain, Misc.unescape(name.getServiceTypeName().toString()));
+                            assertEquals(fullName, Misc.unescape(name.toString()));
                         } catch (TextParseException e)
                         {
                             fail(Misc.throwableToString(e));
@@ -230,37 +288,7 @@ public class ServiceNameTest extends TestCase
     
     
     @Test
-    public void test4RFC2782SubServiceInstanceNames()
-    {
-        ServiceName name;
-        
-        for (String domain : DOMAINS)
-        {
-            for (String root : ROOT_SERVICE_NAMES)
-            {
-                for (String sub : RFC_2782_SUB_SERVICE_NAMES)
-                {
-                    String subServiceName = sub + "." + root + "." + domain;
-                    for (String instance : INSTANCE_NAMES)
-                    {
-                        String instanceName = instance + "." + subServiceName;
-                        try
-                        {
-                            name = new ServiceName(instanceName);
-                            assertEquals(instanceName, Misc.unescape(name.toString()));
-                        } catch (TextParseException e)
-                        {
-                            fail(Misc.throwableToString(e));
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    
-    @Test
-    public void test5Performance()
+    public void Performance_Test()
     {
         @SuppressWarnings("unused")
         ServiceName name;
@@ -269,24 +297,23 @@ public class ServiceNameTest extends TestCase
         int count = 0;
         double average = 0;
         
-        for (int index = 0; index < iterations; index++ )
+        for (int index = 0; index < iterations; index++)
         {
             for (String domain : DOMAINS)
             {
-                for (String root : ROOT_SERVICE_NAMES)
+                for (String type : RFC_6763_TYPES)
                 {
-                    for (String sub : RFC_6763_SUB_SERVICE_NAMES)
+                    for (String subType : RFC_6763_SUB_TYPES)
                     {
-                        String subServiceName = sub + "." + root;
-                        for (String instance : INSTANCE_NAMES)
+                        for (String instance : INSTANCES)
                         {
-                            String instanceName = instance + "." + subServiceName + "." + domain;
+                            String fullSubType = subType + "._sub." + type;
+                            String fullName =  instance + "." + fullSubType + "." + domain;
                             try
                             {
                                 ExecutionTimer._start();
-                                name = new ServiceName(instanceName);
+                                name = new ServiceName(fullName);
                                 double took = ExecutionTimer._took(TimeUnit.NANOSECONDS);
-                                average = (took + average) / (double) 2;
                                 totalTime += took;
                                 count++;
                             } catch (TextParseException e)
@@ -298,7 +325,8 @@ public class ServiceNameTest extends TestCase
                 }
             }
         }
-
-        System.out.println("Took " + (totalTime / (double) 1000000) + " milliseonds to parse " + count + " service names at " + (average / (double) 1000000) + " milliseconds per name.");
+        
+        average = (totalTime + average) / count;
+        System.out.println("Took " + (totalTime / 1000000) + " milliseconds to parse " + count + " service names at " + (average / 1000000) + " milliseconds per name.");
     }
 }

@@ -131,7 +131,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         
         protected ElementHelper(final Cache cache, final Object element)
         throws SecurityException, NoSuchMethodException, NoSuchFieldException,
-        IllegalArgumentException, IllegalAccessException
+        IllegalArgumentException
         {
             this.cache = cache;
             this.element = element;
@@ -178,10 +178,8 @@ public class MulticastDNSCache extends Cache implements Closeable
             {
                 Long value = (Long) getTTL.invoke(element, new Object[0]);
                 return value == null ? 0L : value.longValue();
-            } else
-            {
-                return 0;
             }
+            return 0;
         }
         
         
@@ -244,7 +242,7 @@ public class MulticastDNSCache extends Cache implements Closeable
         
         MonitorTask(final boolean shutdown)
         {
-            this.shutdown = false;
+            this.shutdown = shutdown;
         }
         
         
@@ -566,53 +564,52 @@ public class MulticastDNSCache extends Cache implements Closeable
             }
             
             return message;
-        } else
+        }
+        
+        Message message = new Message(query.getHeader().getID());
+        Header header = message.getHeader();
+        header.setRcode(Rcode.NXDOMAIN);
+        
+        Record[] questions = MulticastDNSUtils.extractRecords(query, Section.QUESTION);
+        if ((questions != null) && (questions.length > 0))
         {
-            Message message = new Message(query.getHeader().getID());
-            Header header = message.getHeader();
-            header.setRcode(Rcode.NXDOMAIN);
-            
-            Record[] questions = MulticastDNSUtils.extractRecords(query, Section.QUESTION);
-            if ((questions != null) && (questions.length > 0))
+            for (Record question : questions)
             {
-                for (Record question : questions)
+                message.addRecord(question, Section.QUESTION);
+                
+                MulticastDNSUtils.setDClassForRecord(question, question.getDClass() & 0x7FFF);
+                SetResponse response = lookupRecords(question.getName(), Type.ANY, credibility);
+                if (response.isSuccessful())
                 {
-                    message.addRecord(question, Section.QUESTION);
+                    header.setRcode(Rcode.NOERROR);
+                    header.setOpcode(Opcode.QUERY);
+                    header.setFlag(Flags.QR);
                     
-                    MulticastDNSUtils.setDClassForRecord(question, question.getDClass() & 0x7FFF);
-                    SetResponse response = lookupRecords(question.getName(), Type.ANY, credibility);
-                    if (response.isSuccessful())
+                    Record[] answers = MulticastDNSUtils.extractRecords(response.answers());
+                    if ((answers != null) && (answers.length > 0))
                     {
-                        header.setRcode(Rcode.NOERROR);
-                        header.setOpcode(Opcode.QUERY);
-                        header.setFlag(Flags.QR);
-                        
-                        Record[] answers = MulticastDNSUtils.extractRecords(response.answers());
-                        if ((answers != null) && (answers.length > 0))
+                        for (Record answer : answers)
                         {
-                            for (Record answer : answers)
+                            if (!message.findRecord(answer))
                             {
-                                if (!message.findRecord(answer))
+                                message.addRecord(answer, Section.ANSWER);
+                            }
+                            
+                            Record[] additionalAnswers = queryCacheForAdditionalRecords(answer, credibility);
+                            for (Record additionalAnswer : additionalAnswers)
+                            {
+                                if (!message.findRecord(additionalAnswer))
                                 {
-                                    message.addRecord(answer, Section.ANSWER);
-                                }
-                                
-                                Record[] additionalAnswers = queryCacheForAdditionalRecords(answer, credibility);
-                                for (Record additionalAnswer : additionalAnswers)
-                                {
-                                    if (!message.findRecord(additionalAnswer))
-                                    {
-                                        message.addRecord(additionalAnswer, Section.ADDITIONAL);
-                                    }
+                                    message.addRecord(additionalAnswer, Section.ADDITIONAL);
                                 }
                             }
                         }
                     }
                 }
             }
-            
-            return message;
         }
+        
+        return message;
     }
     
     

@@ -145,7 +145,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     public MulticastDNSLookupBase(final Name[] names, final int type)
     throws IOException
     {
-        this(names, Type.ANY, DClass.ANY);
+        this(names, type, DClass.ANY);
     }
     
     
@@ -178,7 +178,7 @@ public abstract class MulticastDNSLookupBase implements Closeable, Constants
     public MulticastDNSLookupBase(final String name, final int type, final int dclass)
     throws IOException
     {
-        this(new String[] {name}, type, DClass.ANY);
+        this(new String[] {name}, type, dclass);
     }
     
     

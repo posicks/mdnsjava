@@ -24,7 +24,7 @@ import net.posick.mDNS.utils.ListenerProcessor;
 @SuppressWarnings({"unchecked", "rawtypes"})
 public class Browse extends MulticastDNSLookupBase
 {
-    private static final Logger logger = Logger.getLogger(Browse.class.getName());
+    static final Logger logger = Logger.getLogger(Browse.class.getName());
     
     /**
      * The Browse Operation manages individual browse sessions.  Retrying broadcasts. 
@@ -148,7 +148,7 @@ public class Browse extends MulticastDNSLookupBase
             if (logger.isLoggable(Level.FINE))
             {
                 long now = System.currentTimeMillis();
-                logger.logp(Level.FINE, getClass().getName(), "run", "Broadcasting Query for Browse." + (lastBroadcast <= 0 ? "" : " Last broadcast was " + ((double) ((double) (now - lastBroadcast) / (double) 1000)) + " seconds ago."));
+                logger.logp(Level.FINE, getClass().getName(), "run", "Broadcasting Query for Browse." + (lastBroadcast <= 0 ? "" : " Last broadcast was " + ((double) (now - lastBroadcast) / (double) 1000) + " seconds ago."));
                 lastBroadcast = System.currentTimeMillis();
             }
             

@@ -32,7 +32,6 @@ import org.xbill.DNS.ResolverListener;
 import org.xbill.DNS.SRVRecord;
 import org.xbill.DNS.Section;
 import org.xbill.DNS.TXTRecord;
-import org.xbill.DNS.TextParseException;
 import org.xbill.DNS.Type;
 import org.xbill.DNS.Update;
 
@@ -101,7 +100,6 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             }
             
             SRVRecord srvRecord = new SRVRecord(service.getName(), DClass.IN, 3600, 0, 0, service.getPort(), service.getHost());
-            //query.addRecord(srvRecord, Section.AUTHORITY);
             // TODO: Add support for Unicast answers for first query mDNS.createQuery(DClass.IN + 0x8000, Type.ANY, service.getName());
             
             int tries = 0;
@@ -188,17 +186,7 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                                                    new Update(domain)};
             Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
             Name typeName = new Name(serviceName.getType() + "." + domain);
-            ServiceName shortSRVName;
-            try
-            {
-                shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
-            } catch (TextParseException e)
-            {
-                TextParseException tpe = new TextParseException("The Service Instance name must be set.");
-                tpe.initCause(e);
-                tpe.setStackTrace(e.getStackTrace());
-                throw tpe;
-            }
+            Name shortSRVName = serviceName.getServiceRRName();
             
             try
             {
@@ -225,66 +213,16 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                     }
                 }
                 
-                /*
-                 * Old
-                 * PTRRecord ptrType = new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
-                 * PTRRecord ptrFullName = new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName);
-                 * SRVRecord srv = new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost());
-                 * TXTRecord txt = new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText()));
-                 * NSECRecord serviceNSEC = new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new int[]{Type.TXT,
-                 * Type.SRV});
-                 * NSECRecord addressNSEC = new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new
-                 * int[]{Type.A, Type.AAAA});
-                 * 
-                 * update.add(txt);
-                 * update.add(srv);
-                 * update.add(serviceTypeReg1);
-                 * update.add(serviceTypeReg2);
-                 * update.add(ptrType);
-                 * update.add(ptrFulName);
-                 * 
-                 * update.addRecord(addressNSEC, Section.ADDITIONAL);
-                 * update.addRecord(serviceNSEC, Section.ADDITIONAL);
-                 */
-                
-                // Add Service and Pointer Records
-                /*
-                 * Original Working code!
-                 * records.add(new SRVRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
-                 * records.add(new TXTRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                 * records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
-                 * if (!fullTypeName.equals(typeName))
-                 * {
-                 * records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, serviceName));
-                 * // For compatibility with legacy clients, register the NON sub-protocol service as well.
-                 * if (shortSRVName != null && !shortSRVName.equals(serviceName))
-                 * {
-                 * records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
-                 * records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
-                 * records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                 * additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[]{Type.TXT,
-                 * Type.SRV}));
-                 * }
-                 * }
-                 */
+                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
                 if (!fullTypeName.equals(typeName))
                 {
                     records.add(new PTRRecord(fullTypeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
                 }
-                // For compatibility with legacy clients, register the NON sub-protocol service name.
-                records.add(new PTRRecord(typeName, DClass.IN, DEFAULT_SRV_TTL, shortSRVName));
+                
                 records.add(new SRVRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_SRV_TTL, 0, 0, service.getPort(), service.getHost()));
                 records.add(new TXTRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_TXT_TTL, Arrays.asList(service.getText())));
-                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[] {Type.TXT,
-                                                                                                                                                  Type.SRV}));
-                
-                // Add Security (NSEC) records
-                // Original additionalRecords.add(new NSECRecord(serviceName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, serviceName, new
-                // int[]{Type.TXT, Type.SRV}));
-                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[] {Type.TXT,
-                                                                                                                                                  Type.SRV}));
-                additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[] {Type.A,
-                                                                                                                                                         Type.AAAA}));
+                additionalRecords.add(new NSECRecord(shortSRVName, DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITHOUT_HOST_TTL, shortSRVName, new int[] {Type.TXT, Type.SRV}));
+                additionalRecords.add(new NSECRecord(service.getHost(), DClass.IN + CACHE_FLUSH, DEFAULT_RR_WITH_HOST_TTL, service.getHost(), new int[] {Type.A, Type.AAAA}));
                 
                 for (Record record : records)
                 {
@@ -733,16 +671,15 @@ public class MulticastDNSService extends MulticastDNSLookupBase
             String domain = serviceName.getDomain();
             Name fullTypeName = new Name(serviceName.getFullType() + "." + domain);
             Name typeName = new Name(serviceName.getType() + "." + domain);
-            ServiceName shortSRVName = new ServiceName(serviceName.getInstance(), typeName);
+            Name shortSRVName = serviceName.getServiceRRName();
             
             ArrayList<Record> records = new ArrayList<Record>();
             ArrayList<Record> additionalRecords = new ArrayList<Record>();
             
-            records.add(new PTRRecord(typeName, DClass.IN, 0, serviceName));
+            records.add(new PTRRecord(typeName, DClass.IN, 0, shortSRVName));
             if (!fullTypeName.equals(typeName))
             {
-                records.add(new PTRRecord(fullTypeName, DClass.IN, 0, serviceName));
-                records.add(new PTRRecord(typeName, DClass.IN, 0, shortSRVName));
+                records.add(new PTRRecord(fullTypeName, DClass.IN, 0, shortSRVName));
             }
             
             Update update = new Update(new Name(domain));
@@ -787,11 +724,22 @@ public class MulticastDNSService extends MulticastDNSLookupBase
                 }
             }
             
-            Lookup lookup = new Lookup(new Name[] {serviceName.getServiceTypeName()}, Type.PTR, DClass.ANY);
+            Lookup lookup = new Lookup(new Name[] {typeName, fullTypeName}, Type.PTR, DClass.ANY);
             try
             {
+                boolean found = false;
                 Record[] results = lookup.lookupRecords();
-                return (results == null) || (results.length == 0);
+                if (results != null)
+                {
+                    for (Record record : results)
+                    {
+                        if (shortSRVName.equals(((PTRRecord)record).getTarget()))
+                        {
+                            found = true;
+                        }
+                    }
+                }
+                return !found;
             } finally
             {
                 lookup.close();

@@ -1,20 +1,71 @@
 package net.posick.mDNS;
 
-import java.text.DecimalFormat;
-import java.util.Arrays;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.lang.reflect.Field;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.xbill.DNS.Name;
 import org.xbill.DNS.TextParseException;
-
-import net.posick.mDNS.utils.Misc;
 
 public class ServiceName extends Name
 {
     private static final long serialVersionUID = 201305151047L;
     
     /* Used for printing non-printable characters */
-    private static final DecimalFormat byteFormat = new DecimalFormat("000");
+//    private static final DecimalFormat byteFormat = new DecimalFormat("000");
     
+    private static final byte[][] PROTOCOLS;
+    
+    private static final byte[] SUB_SERVICE_INDICATOR = {4, '_', 's', 'u', 'b'};
+    
+    static
+    {
+        ArrayList<byte[]> protocols = new ArrayList<byte[]>();
+        byte[][] DEFAULTS = {{4, '_', 't', 'c', 'p'}, {4, '_', 'u', 'd', 'p'}, {5, '_', 's', 'c', 't', 'p'}};
+        for (byte[] value : DEFAULTS)
+        {
+            protocols.add(value);
+        }
+        
+        URL url = ServiceName.class.getResource("ServiceName.protocol");
+        BufferedReader data = null;
+        try
+        {
+            data = new BufferedReader(new InputStreamReader(url.openStream()));
+            
+            String line = null;
+            while ((line = data.readLine()) != null)
+            {
+                byte[] bytes = line.trim().getBytes();
+                byte[] protocol = new byte[bytes.length + 1];
+                protocol[0] = (byte) bytes.length;
+                System.arraycopy(bytes, 0, protocol, 1, bytes.length);
+                protocols.add(protocol);
+            }
+        } catch (Exception e)
+        {
+            Logger.getAnonymousLogger().log(Level.FINE, "Could not find Protocols file \"" + url + "\"", e);
+        } finally
+        {
+            if (data != null)
+            {
+                try
+                {
+                    data.close();
+                } catch (IOException e)
+                {
+                    // ignore
+                }
+            }
+        }
+        PROTOCOLS = protocols.toArray(new byte[protocols.size()][]);
+    }
+
     private String instance;
     
     private String fullSubType;
@@ -32,6 +83,8 @@ public class ServiceName extends Name
     private String application;
     
     private final Name serviceTypeName;
+
+    private final Name serviceRRName;
     
     
     public ServiceName(final String s)
@@ -47,101 +100,186 @@ public class ServiceName extends Name
         this(new Name(s, name));
     }
     
-    
     ServiceName(final Name name)
     throws TextParseException
     {
         super(name, 0);
         
-        int labelCount = name.labels();
-        byte[][] labels = new byte[labelCount][];
-        int[] offsets = new int[labelCount];
-        int offsetIndex = 0;
-
-        int serviceLabelCount = 0;
-        byte[][] serviceLabels = new byte[labelCount][];
-
-        StringBuilder domain = new StringBuilder();
-        StringBuilder type = new StringBuilder();
-        StringBuilder subType = new StringBuilder();
-        StringBuilder instance = new StringBuilder();
-
-        boolean serviceName = false;
-        boolean hasSub = false;
-        
-        // Traverse the labels to find the protocol specification (usually _tcp or _udp),
-        // the application, and any RFC 6763 subtypes. Supports RFC 2782 & RFC 6763
-        // Notes: All name parts before the first name part beginning with an underscore "_" are parts of the domain name.
-        //        All name parts after the first name part beginning with an underscore "_" are parts of the service name.
-        byte[] SUB_SERVICE_INDICATOR = {4, '_', 's', 'u', 'b'};
-        int index;
-        for (index = labelCount - 1; index >= 0; index--)
+        byte[] super_name = null;
+        try
         {
-            labels[index] = name.getLabel(index);
-            if ((labels[index][0] > 0) && (labels[index][1] == '_'))
+            Class<Name> cls = Name.class;
+            Field field = cls.getDeclaredField("name");
+            field.setAccessible(true);
+            super_name = (byte[]) field.get(name);
+        } catch (NoSuchFieldException e)
+        {
+            // ignore
+        } catch (IllegalArgumentException e)
+        {
+            // ignore
+        } catch (IllegalAccessException e)
+        {
+            // ignore
+        }
+        
+        int labelCount = name.labels();
+        if (super_name == null)
+        {
+            // Reconstruct the name byte array if the reflective method fails.
+            super_name = new byte[name.length()];
+            int current = 0;
+            for (int index = 0; index < labelCount; index++)
             {
-                serviceName = true;
-                serviceLabels[serviceLabelCount] = labels[index];
-                offsets[offsetIndex] = index;
-                if (serviceLabelCount == 0)
+                byte[] label = name.getLabel(index);
+                System.arraycopy(label, 0, super_name, current, label[0] + 1);
+                current += label[0] + 1;
+            }
+        }
+        
+        short[] offsets = new short[labelCount];
+        
+        short offset = 0;
+        int serviceParts = 0;
+        int serviceStartIndex = -1;
+        int subTypeIndex = -1;
+        int serviceEndIndex = -1;
+        for (int index = 0; index < labelCount; index++)
+        {
+            offsets[index] = offset;
+            short length = (short) (super_name[offsets[index]] & 0x0FF);
+            offset = (short) (offsets[index] + length + 1);
+            
+            if (super_name[offsets[index]] > 0 && super_name[offsets[index] + 1] == '_')
+            {
+                if (serviceEndIndex < 0)
                 {
-                    this.protocol = byteString(labels[index]);
-                } else
+                    serviceEndIndex = index;
+                }
+                if (subTypeIndex < 0 && arrayEquals(SUB_SERVICE_INDICATOR, super_name, offsets[index]))
                 {
-                    if (Arrays.equals(labels[index], SUB_SERVICE_INDICATOR))
+                    subTypeIndex = index;
+                }
+                serviceStartIndex = index;
+                serviceParts++;
+            }
+        }
+        
+        if (serviceParts > 0)
+        {
+            StringBuilder builder = new StringBuilder(); 
+            if (serviceEndIndex > 0)
+            {
+                for (int index = 0; index < serviceEndIndex; index++)
+                {
+                    int length = super_name[offsets[index]];
+                    if (length > 0)
                     {
-                        hasSub = true;
-                        continue;
-                    }
-                    
-                    if (hasSub)
-                    {
-                        subType.insert(0, ".").insert(0, byteString(labels[index]));
-                    } else
-                    {
-                        type.insert(0, ".").insert(0, byteString(labels[index]));
+                        builder.append(new String(super_name, offsets[index] + 1, length)).append('.');
                     }
                 }
-                serviceLabelCount++;
+                this.instance = builder.substring(0, builder.length() - 1);
+                builder.setLength(0);
+            }
+            for (int index = serviceEndIndex; index <= serviceStartIndex; index++)
+            {
+                int length = super_name[offsets[index]];
+                if (length > 0)
+                {
+                    String temp = new String(super_name, offsets[index] + 1, length);
+                    if (index < subTypeIndex)
+                    {
+                        builder.append(temp);
+                    } else if (index == subTypeIndex)
+                    {
+                        this.subType = builder.substring(0, builder.length() - 1);
+                        builder.append(temp);
+                        this.fullSubType = builder.toString();
+                    } else if (index == serviceStartIndex)
+                    {
+                        builder.append(temp);
+                        for (byte[] PROTOCOL : PROTOCOLS)
+                        {
+                            if (arrayEquals(PROTOCOL, super_name, offsets[index]))
+                            {
+                                this.protocol = temp;
+                                break;
+                            }
+                        }
+                        break;
+                    } else
+                    {
+                        builder.append(temp);
+                    }
+                    builder.append('.');
+                }
+            }
+            if (this.fullSubType != null)
+            {
+                this.type = builder.substring(this.fullSubType.length() + 1, builder.length());
+                this.fullType = builder.toString();
+                if (this.protocol != null)
+                {
+                    this.application = builder.substring(this.fullSubType.length() + 1, builder.length() - protocol.length() - 1);
+                } else
+                {
+                    this.application = this.type;
+                }
             } else
             {
-                if (serviceName)
+                this.type = this.fullType = builder.toString();
+                if (this.protocol != null)
                 {
-                    if (labels[index][0] == 0)
-                    {
-                        instance.append(".");
-                    } else
-                    {
-                        instance.insert(0, ".").insert(0, byteString(labels[index]));
-                    }
+                    this.application = builder.substring(0, builder.length() - protocol.length() - 1);
                 } else
                 {
-                    if (labels[index][0] != 0)
-                    {
-                        domain.insert(0, ".").insert(0, byteString(labels[index]));
-                    }
+                    this.application = this.type;
                 }
-                offsets[offsetIndex] = index;
             }
-            offsetIndex++;
-        }
-        this.domain = domain.length() > 0 ? domain.toString() : null;
-        this.type = type.toString() + this.protocol;
-        this.application = Misc.trimTrailingDot(type.toString());
-        if (hasSub && subType.length() > 0)
-        {
-            this.subType =  Misc.trimTrailingDot(subType.toString());
-            this.fullSubType = subType.toString() + "_sub";
-            this.fullType = this.fullSubType + "." + this.type;
+            builder.setLength(0);
+            for (int index = serviceStartIndex + 1; index < offsets.length; index++)
+            {
+                int length = super_name[offsets[index]];
+                if (length > 0)
+                {
+                    builder.append(new String(super_name, offsets[index] + 1, length)).append('.');
+                }
+            }
+            this.domain = builder.substring(0, builder.length());
+            builder.setLength(0);
+            this.serviceTypeName = new Name(this.type + (this.domain != null ? "." + this.domain : ""));
+            if (this.instance != null && this.instance.length() > 0)
+            {
+                this.serviceRRName = new Name(this.instance, this.serviceTypeName);
+            } else
+            {
+                this.serviceRRName = null;
+            }
         } else
         {
-            this.fullType = this.type;
+            throw new TextParseException("Name \"" + name + "\" is not an IETF RFC 2782 or IETF RFC 6763 compliant service name.");
         }
-        this.instance = instance.length() > 0 ? Misc.trimTrailingDot(instance.toString()) : null;
-        this.serviceTypeName = name;
     }
     
     
+    private static final boolean arrayEquals(byte[] test, byte[] src, short offset)
+    {
+        short length = src[offset];
+        if (length == test[0] && src.length > offset + length)
+        {
+            for (int index = 1; index < length; index++)
+            {
+                if (test[index] != src[offset + index])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+        return false;
+    }
+
+
     public String getApplication()
     {
         return application;
@@ -184,6 +322,12 @@ public class ServiceName extends Name
     }
     
     
+    public Name getServiceRRName()
+    {
+        return serviceRRName;
+    }
+    
+    
     public String getSubType()
     {
         return subType;
@@ -195,7 +339,7 @@ public class ServiceName extends Name
         return type;
     }
     
-    
+    /*
     private String byteString(final byte[] array)
     {
         int pos = 0;
@@ -231,6 +375,7 @@ public class ServiceName extends Name
         }
         return sb.toString();
     }
+    */
     
     
     public static void main(final String... args)
@@ -258,6 +403,6 @@ public class ServiceName extends Name
             name = new ServiceName(serviceName);
         }
         long tookNanos = System.nanoTime() - startNanos;
-        System.out.println("Took " + ((double) tookNanos / (double) 1000000) + " milliseconds to parse " + iterations + " service names at " + (double) ((double) (tookNanos / iterations) / (double) 1000000) + " millis / " + (tookNanos / iterations) + " nanoseconds each name");
+        System.out.println("Took " + ((double) tookNanos / (double) 1000000) + " milliseconds to parse " + iterations + " service names at " + ((double) (tookNanos / iterations) / (double) 1000000) + " millis / " + (tookNanos / iterations) + " nanoseconds each name");
     }
 }

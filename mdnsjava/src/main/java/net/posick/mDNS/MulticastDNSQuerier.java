@@ -64,7 +64,7 @@ public class MulticastDNSQuerier implements Querier
         }
         
         
-        public Message getResponse(final int responseWait, final int timeout)
+        public Message getResponse(final int timeout)
         throws IOException
         {
             Message response = (Message) query.clone();
@@ -653,7 +653,7 @@ public class MulticastDNSQuerier implements Querier
     {
         Resolution res = new Resolution(this, query, null);
         res.start();
-        return res.getResponse(DEFAULT_RESPONSE_WAIT_TIME, DEFAULT_TIMEOUT);
+        return res.getResponse(DEFAULT_TIMEOUT);
     }
     
     

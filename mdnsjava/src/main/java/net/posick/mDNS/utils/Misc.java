@@ -89,6 +89,11 @@ public class Misc
     
     public static final String unescape(String string)
     {
+        if (string == null)
+        {
+            return null;
+        }
+        
         StringBuilder output = new StringBuilder();
         char[] chars = string.toCharArray();
         
