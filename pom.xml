@@ -10,6 +10,26 @@
 	
 	<name>mDNS for Java</name>
 
+	<licenses>
+		<license>
+			<name>BSD 2-Clause license</name>
+			<url>http://opensource.org/licenses/BSD-2-Clause</url>
+		</license>
+	</licenses>
+
+	<developers>
+		<developer>
+			<name>Steve Posick</name>
+			<email>posicks@gmail.com</email>
+		</developer>
+	</developers>
+
+	<scm>
+		<connection>scm:git:git://github.com/posicks/mdnsjava.git</connection>
+		<developerConnection>scm:git:ssh://github.com:posicks/mdnsjava.git</developerConnection>
+		<url>https://github.com/posicks/mdnsjava.git</url>
+	</scm>
+
 	<dependencies>
 		<dependency>
 			<groupId>junit</groupId>

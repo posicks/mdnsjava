@@ -55,11 +55,11 @@ public class dnssd
      * Command Line:
      * dnssd -E                         (Enumerate recommended registration domains)
      * dnssd -F                             (Enumerate recommended browsing domains)
-     * dnssd -B        <Type> [<Domain>]             (Browse for services instances)
-     * dnssd -L <Name> <Type> [<Domain>]                (Look up a service instance)
-     * dnssd -R <Name> <Type> <Domain> <Port> <Host> [<TXT>...] (Register a service)
-     * dnssd -Q <FQDN> <rrtype> <rrclass>        (Generic query for any record type)
-     * dnssd -G v4/v6/v4v6 <Hostname>         (Get address information for hostname)
+     * dnssd -B        &lt;Type&gt; [&lt;Domain&gt;]             (Browse for services instances)
+     * dnssd -L &lt;Name&gt; &lt;Type&gt; [&lt;Domain&gt;]                (Look up a service instance)
+     * dnssd -R &lt;Name&gt; &lt;Type&gt; &lt;Domain&gt; &lt;Port&gt; &lt;Host&gt; [&lt;TXT&gt;...] (Register a service)
+     * dnssd -Q &lt;FQDN&gt; &lt;rrtype&gt; &lt;rrclass&gt;        (Generic query for any record type)
+     * dnssd -G v4/v6/v4v6 &lt;Hostname&gt;         (Get address information for hostname)
      * dnssd -V           (Get version of currently running daemon / system service)
      * </code>
      */

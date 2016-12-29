@@ -1,7 +1,8 @@
 Manifest-Version: 1.0
-Bnd-LastModified: 1453420112956
-Build-Jdk: 1.8.0_66
+Bnd-LastModified: 1482988613682
+Build-Jdk: 1.8.0_112
 Built-By: posicks
+Bundle-License: http://opensource.org/licenses/BSD-2-Clause
 Bundle-ManifestVersion: 2
 Bundle-Name: mDNS for Java SPI
 Bundle-SymbolicName: mdnsjava-spi
